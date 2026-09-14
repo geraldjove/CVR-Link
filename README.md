@@ -35,8 +35,9 @@ You should see the screen's edges. Use **Play in VR** to return to headset play.
 Open the mode popup at any time with **F8**, or the **CVRFlatscreen** button in
 the game menu. VR players can find the app download and Discord links there.
 
-**Loadout release status:** The [CVRFlatscreen page](https://mod.io/g/contractors/m/cvrflatscreen)
-is ready. Its Windows and server files are packed and waiting for upload.
+**Loadout release status:** Windows and server files are uploaded to
+[CVRFlatscreen on mod.io](https://mod.io/g/contractors/m/cvrflatscreen).
+Both downloads match the tested release. Subscribe to CVRFlatscreen in the game.
 The app needs that loadout to enable flatscreen. Installing the app alone does
 not add it to the game's loadout list. This is the first early app release.
 
@@ -83,7 +84,8 @@ The app and install backups are in `%LOCALAPPDATA%\CVRLink`.
 More guns, maps, respawns, long sessions, and mixed VR/flatscreen matches still
 need play tests. Gadget hands are hidden for now. Guns with loose-round pouches
 do not yet have keyboard reload support. There is no Quest package. A Windows
-server package is built, but it still needs a live server test.
+server package is uploaded, but it still needs a live server test. A fresh
+in-game download also needs a play check without the local development copy.
 
 The supplied code enables flatscreen only in the CVRFlatscreen loadout. It
 returns to VR outside that loadout. These checks run on the player's PC; they
@@ -107,5 +109,5 @@ No game files are included in this repo.
 
 For source checks and building the EXE, see [BUILD.md](BUILD.md).
 Last verified: **2026-09-14**. Sources: source checks, native desktop and editor
-checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)
+checks, mod.io download checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)
 for what was checked and what still needs a live test.

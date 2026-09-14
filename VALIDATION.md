@@ -1,7 +1,8 @@
 # Release checks
 
 Last verified: **2026-09-14**. Sources: the current test scripts, Windows EXE
-checks, native Contractors editor checks, and the recorded local play tests.
+checks, native Contractors editor checks, mod.io upload/download records, and
+the recorded local play tests.
 
 - 324 Lua checks passed using fake game objects: camera 30, controls 107,
   inventory 47, ammo 23, item actions 14, placement 21, settings 31, room 14,
@@ -31,6 +32,11 @@ checks, native Contractors editor checks, and the recorded local play tests.
 - The final Windows package was installed and play-tested. The author confirmed
   the popup credit, Discord link, GitHub download link, and both play modes work.
   Game status also showed flatscreen activation, a held rifle, and return to VR.
+- Both mod.io uploads completed for mod 6383627. The Windows file is 8213876;
+  the server file is 8213875. Both were downloaded without signing in, and their
+  SHA-256 hashes match the tested release ZIPs exactly. The kit reported upload
+  success. A fresh in-game install without the local test copy still needs a
+  play check; these download checks do not prove multiplayer or server support.
 
 Clean-PC setup, the Windows
 permission prompt on a protected Steam folder, more guns and maps, respawns,
