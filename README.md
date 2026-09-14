@@ -36,7 +36,7 @@ Open the mode popup at any time with **F8**, or the **CVRFlatscreen** button in
 the game menu. VR players can find the app download and Discord links there.
 
 **Loadout release status:** The [CVRFlatscreen page](https://mod.io/g/contractors/m/cvrflatscreen)
-is ready. Its game files are being prepared for upload.
+is ready. Its Windows and server files are packed and waiting for upload.
 The app needs that loadout to enable flatscreen. Installing the app alone does
 not add it to the game's loadout list. This is the first early app release.
 
@@ -82,8 +82,8 @@ The app and install backups are in `%LOCALAPPDATA%\CVRLink`.
 
 More guns, maps, respawns, long sessions, and mixed VR/flatscreen matches still
 need play tests. Gadget hands are hidden for now. Guns with loose-round pouches
-do not yet have keyboard reload support. There is no Quest or dedicated-server
-package in this release.
+do not yet have keyboard reload support. There is no Quest package. A Windows
+server package is built, but it still needs a live server test.
 
 The supplied code enables flatscreen only in the CVRFlatscreen loadout. It
 returns to VR outside that loadout. These checks run on the player's PC; they

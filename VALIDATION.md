@@ -17,9 +17,13 @@ checks, native Contractors editor checks, and the recorded local play tests.
   Windows Apps removal. All ten installed Lua files matched. Saved settings and
   the pre-existing unrelated mod file kept their exact hashes. Both setup and
   settings windows were visually checked, including author and link labels.
-- 45 native editor checks passed for the updated loadout. They cover holders,
+- 47 native editor checks passed for the updated loadout. They cover holders,
   menus, the HUD, centered crosshair anchors, button bindings, and the compiled
   Discord/download browser actions. The test does not open external sites.
+- Windows and WindowsServer cooks passed. Each PAK has 25 files under our
+  loadout's namespace. Each upload ZIP has only that PAK in Content. The PAK
+  integrity checks, extracted-file counts, and private-data pattern scans passed.
+  The kit emitted stock asset warnings. A live server test is still pending.
 - Local play checks confirmed mouse/WASD, VR return, menus, E pickup, finite
   chest ammo, station refills, stable crouch, the fixed crosshair, close aim,
   wall pullback, icon shape, HUD size, and transparency.
