@@ -28,7 +28,11 @@ checks, native Contractors editor checks, and the recorded local play tests.
   chest ammo, station refills, stable crouch, the fixed crosshair, close aim,
   wall pullback, icon shape, HUD size, and transparency.
 
-The new popup links still need a live click check. Clean-PC setup, the Windows
+- The final Windows package was installed and play-tested. The author confirmed
+  the popup credit, Discord link, GitHub download link, and both play modes work.
+  Game status also showed flatscreen activation, a held rifle, and return to VR.
+
+Clean-PC setup, the Windows
 permission prompt on a protected Steam folder, more guns and maps, respawns,
 long sessions, and mixed VR/flatscreen multiplayer need more live checks.
 Tests do not prove support for every machine, weapon, or game update.
