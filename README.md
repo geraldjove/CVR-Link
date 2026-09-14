@@ -35,7 +35,8 @@ You should see the screen's edges. Use **Play in VR** to return to headset play.
 Open the mode popup at any time with **F8**, or the **CVRFlatscreen** button in
 the game menu. VR players can find the app download and Discord links there.
 
-**Loadout release status:** The mod.io page and final upload are being prepared.
+**Loadout release status:** The [CVRFlatscreen page](https://mod.io/g/contractors/m/cvrflatscreen)
+is ready. Its game files are being prepared for upload.
 The app needs that loadout to enable flatscreen. Installing the app alone does
 not add it to the game's loadout list. This is the first early app release.
 
