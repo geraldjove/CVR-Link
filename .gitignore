@@ -1,0 +1,12 @@
+.deps/
+bin/
+*.exe
+*.dll
+*.pdb
+*.zip
+*.log
+*.dmp
+.env*
+settings.ini
+control.txt
+status.txt
