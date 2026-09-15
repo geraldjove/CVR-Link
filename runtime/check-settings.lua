@@ -25,6 +25,11 @@ check(S.defaults().keys.E=='E','defaults do not share key tables')
 local old=assert(S.parse('mouse=0.8\naim=1\n'))
 check(old.mouse==.8 and old.ui_scale==1 and old.ui_opacity==1,'old files retain mouse speed and get default HUD settings')
 check(old.fov==80 and S.defaults().fov==80,'old files and defaults use 80 degree FOV')
+check(old.keys.F9=='F9','old settings get the pointer shortcut')
+local custom=assert(S.parse('E=F9\nG=F10\n'))
+check(custom.keys.E=='F9' and custom.keys.G=='F10' and custom.keys.F9=='F11','new pointer key preserves old custom F9 and F10 bindings')
+check(not S.parse('E=F9\nF9=F9\n'),'explicit duplicate pointer binding is rejected')
+check(assert(S.parse('F9=F12\n')).keys.F9=='F12','pointer shortcut can be rebound')
 for _,fov in ipairs({80,100,120}) do
     local v=S.defaults(); v.fov=fov
     check(assert(S.parse(assert(S.encode(v)))).fov==fov,'FOV range round trips: '..fov)

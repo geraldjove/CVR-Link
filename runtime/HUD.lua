@@ -9,7 +9,7 @@ function M.stop()
     if valid(widget) then show(widget,false); widget:RemoveFromParent() end
     widget,last_update,last_item=nil,nil,nil
 end
-function M.update(next_widget,pawn,settings,aiming,reloading)
+function M.update(next_widget,pawn,settings,aiming,reloading,ui_active)
     if not valid(next_widget) then M.stop(); return end
     if not valid(widget) or widget:GetAddress()~=next_widget:GetAddress() then
         M.stop()
@@ -22,7 +22,7 @@ function M.update(next_widget,pawn,settings,aiming,reloading)
         widget.StancePanel:SetRenderTransformPivot({X=0,Y=1})
         widget.AmmoPanel:SetRenderTransformPivot({X=1,Y=1})
     end
-    local visible=pawn.InputMode==0
+    local visible=pawn.InputMode==0 and not ui_active
     show(widget,visible)
     if not visible then return end
     local scale=settings.ui_scale

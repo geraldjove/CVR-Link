@@ -200,11 +200,29 @@ local function sight_reference(gun)
     end
     return transform(gun.DefaultSightRelativeTransform)
 end
+local function stationary_open(pawn)
+    return valid(pawn.StationaryUI) and pawn.StationaryUI.bIsShowing or false
+end
+function M.pointer_mode(pawn)
+    local stationary=stationary_open(pawn)
+    if state then
+        if state.input_mode~=pawn.InputMode or state.forced_ui~=pawn.bForcedUIInput or state.stationary_open~=stationary then
+            state.pointer_override=nil
+            state.input_mode,state.forced_ui,state.stationary_open=pawn.InputMode,pawn.bForcedUIInput,stationary
+        end
+        if state.pointer_override~=nil then return state.pointer_override end
+    end
+    return pawn.InputMode~=0 or pawn.bForcedUIInput==true or stationary
+end
+function M.ui_active(pawn)
+    local pointer=M.pointer_mode(pawn)
+    return pointer or pawn.InputMode~=0 or pawn.bForcedUIInput==true or stationary_open(pawn)
+end
 function M.hud_state()
-    return state and (state.ads_amount or 0)>0, state and state.reload_deadline~=nil
+    return state and (state.ads_amount or 0)>0, state and state.reload_deadline~=nil, state and M.ui_active(state.pawn)
 end
 function M.wants_look(pawn)
-    return pawn.InputMode==0 and not (state and valid(state.pc)
+    return not M.pointer_mode(pawn) and not (not M.ui_active(pawn) and state and valid(state.pc)
         and down_key(state.pc,'MiddleMouseButton') and placement.can_rotate(pawn,inventory.held(state.right)))
 end
 function M.tick(pawn,pc,camera,rotation,dx,dy)
@@ -212,14 +230,34 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     state.pc=pc
     state.view=copy(rotation,{'Pitch','Yaw','Roll'})
     local pressed,down={},{}
-    for _,name in ipairs({'Tab','E','G','B','One','Two','Three','Four','Five','V','R','F6','LeftMouseButton','RightMouseButton','MiddleMouseButton','LeftAlt','RightAlt','LeftShift','LeftControl','C'}) do
+    for _,name in ipairs({'Tab','F9','E','G','B','One','Two','Three','Four','Five','V','R','F6','LeftMouseButton','RightMouseButton','MiddleMouseButton','LeftAlt','RightAlt','LeftShift','LeftControl','C'}) do
         down[name]=down_key(pc,name)
         pressed[name]=down[name] and not state.keys[name] and not state.first
     end
     state.keys,state.first=down,false
+    if pressed.Tab then
+        release_fire()
+        if pawn.InputMode==1 then pawn:HideMenuUI()
+        elseif pawn.InputMode==0 and not pawn.bForcedUIInput and not stationary_open(pawn) then
+            pawn:ShowMenuUI(true,FName('None')); state.opened_menu=true
+        end
+        -- Stock menu input ignores stationary screens. Never stack the pause menu
+        -- over loadout/respawn, or clear their input mode when closing it.
+        M.pointer_mode(pawn)
+        state.pointer_override=nil
+    end
+    local pointer_mode=M.pointer_mode(pawn)
+    if pressed.F9 then
+        state.pointer_override=not pointer_mode
+        pointer_mode=state.pointer_override
+        state.pointer_yaw,state.pointer_pitch=0,0
+        release_fire()
+        if state.click then state.pointer:ReleasePointerKey(key('LeftMouseButton')); state.click=false end
+    end
+    local menu=M.ui_active(pawn)
     local gun=holding()
     if state.reload_deadline then
-        if pawn.InputMode~=0 or not same(state.reload_gun,gun) then
+        if menu or not same(state.reload_gun,gun) then
             cancel_reload()
         elseif os.clock()>=state.reload_deadline then
             complete_reload(gun)
@@ -231,7 +269,6 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         state.ads_amount,state.ads_goal=0,nil
         if valid(state.ads_gun) then state.ads_gun:SetPancakeAimingDownSight(false); state.ads_gun=nil end
     end
-    local menu=pawn.InputMode~=0
     if bindings.W then
         -- Use the stock movement setters with the chosen PC keys. VR keys are untouched.
         pawn:SetMovementInput_X(not menu and ((down_key(pc,'D') and 1 or 0)-(down_key(pc,'A') and 1 or 0)) or 0)
@@ -241,28 +278,23 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     local aiming=down.RightMouseButton and valid(gun) and not menu
     local hand_item=inventory.held(state.right)
     local vertical_rotation=down.LeftAlt or down.RightAlt
-    placement.follow(pawn,hand_item,camera,rotation,down.MiddleMouseButton,
-        vertical_rotation and 0 or dx,vertical_rotation and dy or 0)
+    if menu then placement.stop()
+    else placement.follow(pawn,hand_item,camera,rotation,down.MiddleMouseButton,
+        vertical_rotation and 0 or dx,vertical_rotation and dy or 0) end
     local utility=valid(hand_item) and not valid(gun)
     place(state.right,camera,(utility and 45 or 35)+actions.offset(state.action),
         utility and 12 or (aiming and 0 or 16),utility and -10 or (aiming and -6 or -20),rotation)
     place(pawn.LeftMotionController,camera,40,-16,-24,rotation)
     local pointer_rotation=rotation
-    if menu then
+    if pointer_mode then
         state.pointer_yaw=math.max(-70,math.min(70,(state.pointer_yaw or 0)+(dx or 0)))
         state.pointer_pitch=math.max(-65,math.min(65,(state.pointer_pitch or 0)+(dy or 0)))
         pointer_rotation={Pitch=math.max(-85,math.min(85,rotation.Pitch+state.pointer_pitch)),
             Yaw=rotation.Yaw+state.pointer_yaw,Roll=0}
     else state.pointer_yaw,state.pointer_pitch=0,0 end
     place(state.pointer.RootComponent,camera,5,0,0,pointer_rotation)
-    if pressed.Tab then
-        release_fire()
-        if pawn.InputMode==1 then pawn:HideMenuUI()
-        else pawn:ShowMenuUI(true,FName('None')); state.opened_menu=true end
-    end
     if not state.pointer.bIsEnabled then state.pointer:Enable() end
-    local over_ui=state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget()
-    menu=pawn.InputMode~=0
+    local over_ui=state.pointer_override~=false and state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget()
     aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending and not state.reload_deadline
     state.aiming=aiming and not state.zoom_mode and not state.reload_deadline
     local crouch_down=down.LeftControl or down.C
@@ -547,7 +579,9 @@ end
 function M.status()
     if not state then return '' end
     local gun=holding()
-    return '|menu='..tostring(state.pawn.InputMode)..'|gun='..(valid(gun) and gun:GetFName():ToString() or 'none')
+    return '|menu='..tostring(state.pawn.InputMode)..'|forced_ui='..tostring(state.pawn.bForcedUIInput)
+        ..'|stationary_ui='..tostring(stationary_open(state.pawn))..'|pointer_mode='..tostring(M.pointer_mode(state.pawn))
+        ..'|gun='..(valid(gun) and gun:GetFName():ToString() or 'none')
         ..'|pointer='..tostring(state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget())
         ..'|crouch='..tostring(state.pawn:IsCrouching())..'|sprint='..tostring(state.pawn:IsSprinting())
         ..'|sprint_lower='..tostring(state.sprint_amount or 0)..'|sprint_blocked='..tostring(state.sprint_blocked or false)

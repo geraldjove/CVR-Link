@@ -1,5 +1,14 @@
 # Future work
 
+## Windows pointer and menus
+
+- [x] Keep the pointer for loadout/respawn and stop Tab stacking the pause menu.
+- [x] Add F9 to switch pointer control and mouse look, with a CVR Link key setting.
+  Gerald confirmed the local preview works correctly on 16 September 2026.
+- [ ] Check wider maps, repeated join/death/respawn, and mixed PC/Quest sessions.
+  The initial sky-facing angle was not captured before respawn; keep checking
+  first-join camera placement even though the recovery/menu fix is confirmed.
+
 ## Quest welcome
 
 - [x] Confirm the 0.2.2 welcome and new game-menu UI appear on Quest.

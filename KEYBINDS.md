@@ -6,10 +6,11 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | --- | --- |
 | **F7** | Turn CVR Link off or on. This cannot unlock other loadouts. |
 | **F8** | Open or close the play mode window in CVRFlatscreen. |
+| **F9** | Switch between mouse look and the menu pointer. Use it to look toward an off-screen menu, then press again to click. |
 | **Escape while choosing a key in CVR Link** | Cancel that key change. |
 | **Move mouse** | Look around. In a menu, move the laser pointer. |
 | **W / A / S / D** | Move forward / left / backward / right. |
-| **Tab** | Open or close the menu. Mouse look pauses while the menu is open. |
+| **Tab** | Open or close the game menu. A loadout or respawn screen keeps its own pointer; Tab does not open another menu over it. |
 | **Left click on a menu** | Select the button under the laser pointer. |
 | **Mouse wheel over a menu** | Scroll the menu. |
 | **E** | Within two metres, use an ammo station or pick up an aimed item with an empty hand. Over a menu button, select it. |
@@ -39,6 +40,16 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 You can press or release Alt during a Claymore drag to change which way it turns.
 Its chosen angle lasts until you put it away, open the menu, or turn the mod off.
 Aim at a wall or floor within about two metres to show the place preview.
+
+CVR Link 0.2.4 adds **F9**, also listed as **Pointer / mouse look**
+in CVR Link. Loadout and respawn screens get pointer control on their own.
+If a screen is outside your view, press F9, look toward it, then press F9 again
+to click it. Looking around does not close the screen or allow weapon actions.
+Opening or closing a screen resets this choice. You can also use F9 during play.
+If an older custom key setup already uses F9, the new action takes the first free
+key starting with F10. Check its key in CVR Link. Gerald confirmed that the
+pointer fix works in play on 16 September 2026. Update the Windows app for it;
+the loadout files are still 0.2.3.
 
 Walls block E pickups. E keeps a held item; G drops it.
 At an ammo station, E refills chest magazines even while you hold a gun. Each

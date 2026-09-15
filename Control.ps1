@@ -19,6 +19,7 @@ $actions=[ordered]@{
  RightMouseButton='Aim'; R='Reload'; B='Fire mode'; LeftShift='Sprint'
  LeftControl='Crouch'; C='Crouch (second key)'; F6='Scope / zoom'
  MiddleMouseButton='Turn Claymore'; LeftAlt='Tilt Claymore'; RightAlt='Tilt (second key)'
+ F9='Pointer / mouse look'
 }
 $keyCodes=[ordered]@{LeftMouseButton=1;RightMouseButton=2;MiddleMouseButton=4;ThumbMouseButton=5;ThumbMouseButton2=6;BackSpace=8;Tab=9;Enter=13;SpaceBar=32;PageUp=33;PageDown=34;End=35;Home=36;Left=37;Up=38;Right=39;Down=40;Insert=45;Delete=46;LeftShift=160;RightShift=161;LeftControl=162;RightControl=163;LeftAlt=164;RightAlt=165}
 foreach($code in 65..90){$keyCodes[[string][char]$code]=$code}
@@ -66,6 +67,12 @@ function Read-Settings([string]$Text){
   elseif($name -ceq 'ui_opacity'){$opacity=[decimal]::Parse($value,$invariant)}
   elseif($name -ceq 'experimental_start'){if($value -cnotin @('0','1')){throw 'Experimental start must be 0 or 1.'};$experimentalStart=$value -ceq '1'}
   elseif($name -cin @($keys.Keys)){$keys[$name]=$value}else{throw 'Settings file has an unknown entry.'}
+ }
+ if(-not $seen.ContainsKey('F9')){
+  $used=@{};foreach($action in $keys.Keys){if($action -ne 'F9'){$used[$keys[$action]]=$true}}
+  foreach($key in @('F9','F10','F11','F12','F1','F2','F3','F4','F5','F6','Home','End','Insert','Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Up','Down','Left','Right')){
+   if(-not $used.ContainsKey($key)){$keys.F9=$key;break}
+  }
  }
  $null=Encode-Settings $mouse $aim $keys $scale $opacity $experimentalStart $fov
  return @{Mouse=$mouse;Aim=$aim;Fov=$fov;Keys=$keys;Scale=$scale;Opacity=$opacity;ExperimentalStart=$experimentalStart}
@@ -161,7 +168,8 @@ if($Check){
  foreach($bad in @('true','false','2','-1','0.5','01')){$rejected=$false;try{$null=Read-Settings ('experimental_start='+$bad)}catch{$rejected=$true};if(-not $rejected){throw 'Invalid Experimental setting accepted'}}
  foreach($badUi in @(@(.49,1),@(1.51,1),@(1,.09),@(1,1.01))){$rejected=$false;try{$null=Encode-Settings 2.5 1 $bindings $badUi[0] $badUi[1]}catch{$rejected=$true};if(-not $rejected){throw 'Invalid HUD settings accepted'}}
  $old=Read-Settings "mouse=0.8`naim=1`n";if($old.Scale -ne 1 -or $old.Opacity -ne 1 -or $old.Mouse -ne .8 -or $old.ExperimentalStart -or $old.Fov -ne 80){throw 'Old settings did not retain defaults'}
- if($keyButtons.Count -ne 24 -or $parsed.Keys.Count -ne 24){throw 'Missing control'}
+ if($keyButtons.Count -ne 25 -or $parsed.Keys.Count -ne 25){throw 'Missing control'}
+ $custom=Read-Settings "E=F9`n";if($custom.Keys.E -ne 'F9' -or $custom.Keys.F9 -ne 'F10'){throw 'Old custom F9 binding was changed'}
  $bad=[ordered]@{};foreach($key in $actions.Keys){$bad[$key]=$key};$bad.E='G';$rejected=$false
  try{$null=Encode-Settings 2.5 1 $bad}catch{$rejected=$true};if(-not $rejected){throw 'Duplicate keys accepted'}
  $bad.E='F7';$rejected=$false;try{$null=Encode-Settings 2.5 1 $bad}catch{$rejected=$true};if(-not $rejected){throw 'Reserved key accepted'}
@@ -182,7 +190,7 @@ if($Check){
  $script:testRunning=$false;function Test-Path {return $false};$rejected=$false
  try{Start-Contractors $true}catch{$rejected=$true}
  if(-not $rejected -or $script:launch){throw 'Missing Steam executable was not handled'}
- $form.Dispose();'CVR Link: native form, 24 controls, three tabs, settings round trip, atomic save, and Steam launch checks passed.';return
+ $form.Dispose();'CVR Link: native form, 25 controls, three tabs, settings round trip, atomic save, and Steam launch checks passed.';return
 }
 New-Item -ItemType Directory -Path $directory -Force|Out-Null
 $mutex=[Threading.Mutex]::new($false,'Local\ContractorsFlatscreenControl')

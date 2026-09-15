@@ -2,7 +2,7 @@
 local M={}
 M.keys={'W','S','A','D','Tab','E','G','One','Two','Three','Four','Five','V',
     'LeftMouseButton','RightMouseButton','R','B','LeftShift','LeftControl','C','F6',
-    'MiddleMouseButton','LeftAlt','RightAlt'}
+    'MiddleMouseButton','LeftAlt','RightAlt','F9'}
 local allowed={LeftMouseButton=true,RightMouseButton=true,MiddleMouseButton=true,
     ThumbMouseButton=true,ThumbMouseButton2=true,SpaceBar=true,Tab=true,Enter=true,
     LeftShift=true,RightShift=true,LeftControl=true,RightControl=true,LeftAlt=true,RightAlt=true,
@@ -58,6 +58,15 @@ function M.parse(text)
             result.experimental_start=value=='1'
         elseif result.keys[name] then result.keys[name]=value
         else return nil,'Settings file has an unknown entry.' end
+    end
+    -- Keep older custom F9 bindings. Give the new action the first unused key.
+    if not seen.F9 then
+        local used={}
+        for name,key in pairs(result.keys) do if name~='F9' then used[key]=true end end
+        for _,key in ipairs({'F9','F10','F11','F12','F1','F2','F3','F4','F5','F6','Home','End','Insert',
+            'Zero','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Up','Down','Left','Right'}) do
+            if not used[key] then result.keys.F9=key; break end
+        end
     end
     return M.validate(result)
 end

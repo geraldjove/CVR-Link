@@ -1,58 +1,55 @@
-# Release checks - 0.2.3
+# Release checks - CVR Link 0.2.4
 
 16 September 2026. Code and build checks do not replace play tests.
 
 ## Code and build checks
 
-- 502 checks across ten Lua suites: camera 51, controls 157, inventory 47,
-  ammo 23, item actions 14, placement 21, settings 52, room 36, menu 82, HUD 19.
-- 29 installer checks cover setup, repair, upgrades from 0.1.0 through 0.2.2,
+- 526 checks across ten Lua suites: camera 51, controls 175, inventory 47,
+  ammo 23, item actions 14, placement 21, settings 56, room 36, menu 82, HUD 21.
+- 30 installer checks cover setup, repair, upgrades from 0.1.0 through 0.2.3,
   backups, conflicts, removal, and failed-save rollback.
-- Native EXE startup, settings form, and 53 GUI settings-file checks.
-- The EXE has 17 approved files. Source and pinned UE4SS hashes match.
-  Private-data and PowerShell syntax scans pass.
-- 115 checks after reopening the Blueprints cover three armor holders,
-  Windows/Quest popup behavior, pointer collision, death cleanup, links,
-  the retained menu button, and removal of player reporting.
-- Windows, WindowsServer, and Android ASTC cooks pass. Each PAK has 25 entries.
-  Each ZIP has one exact forward-slash Content entry. Its decompressed PAK
-  hash matches the checked build.
-- Native editor chambering checks pass on AWP, Sako 85, Kar98, Lee-Enfield,
-  Mosin, and De Lisle through the last round without creating ammo.
+- Native settings form: pointer action, capture button, key save, reset,
+  and visual review. 57 GUI settings-file checks pass in the release.
+- Native release EXE startup, PowerShell syntax, the 34-file public export,
+  and the 17-file EXE source/vendor/private-data scans pass.
+- Read-only editor probes confirm the stock stationary UI, forced UI, and
+  menu input branches used by the fix. No asset changes were needed.
+- The 0.2.3 loadout keeps its earlier 115 reopened Blueprint checks, three
+  successful cooks, and 25 PAK entries on each platform. Exact ZIP paths and
+  decompressed PAK hashes are checked when updating the mod.io notes.
 
 ## Play checks and limits
 
-The player confirms FOV and automatic bolt cycling work in the local preview.
-The released runtime matches that preview. This does not establish every gun,
-map, or scope view. The preview without the player list still needs live menu,
-death/rejoin, mixed PC/Quest, and dedicated-server checks.
+The player confirmed that the local pointer/menu preview works correctly.
+The release runtime matches that preview. This confirmation does not cover
+all maps or repeated join/death/respawn, mixed PC/Quest, or dedicated servers.
+The original sky-facing join angle was already gone when captured. F9 lets
+players look back toward an off-screen menu; its initial angle needs more checks.
 
-The earlier Quest death-menu and Windows Nuketown startup fixes were confirmed
-in play. The Quest welcome and menu appeared after reinstalling 0.2.2.
+FOV and automatic bolts were confirmed in the earlier preview. The Quest
+welcome appeared after reinstalling 0.2.2. The earlier Quest death-menu and
+Windows Nuketown startup fixes were confirmed in play.
 
-Multiplayer has been reported as locked with Experimental start. Steam sign-in
-succeeded, but the game's login state and root cause are still unverified.
-No online-access fix is claimed in 0.2.3.
+The earlier multiplayer lock with Experimental start remains unresolved.
+No online-access fix is claimed. Clean-PC setup, protected Steam folders,
+and long sessions still need tests. The EXE is unsigned. Gadget hands stay
+hidden; loose-round guns lack keyboard reload. Quest uses VR controllers.
 
-Clean-PC setup, protected Steam folders, and long sessions still need tests.
-The EXE is unsigned. Gadget hands stay hidden; loose-round guns lack keyboard
-reload. Quest mouse-and-keyboard work is deferred; Quest uses VR controllers.
+The loadout gate runs on the player's PC. Public source has no account
+tokens, private history, or game files. UE4SS 3.0.1 keeps its MIT license.
 
-The loadout gate runs on the player's PC. It is not server anti-cheat.
-Public source has no account tokens, private history, or game files.
-UE4SS 3.0.1 is bundled under its MIT license.
+## Loadout files
+
+Mod.io 6383627 keeps Windows **8218361** (default), server **8218362**, and
+Android **8218363**, all 0.2.3. The 0.2.4 fixes are in the Windows app. The
+mod.io page and package notes link to that app. Android discovery and the
+existing platform mappings must pass the publication readback.
 
 ## Checked app
 
-CVR Link 0.2.3 EXE SHA-256:
-`3F5A1166845F7BAF97C51B21434FBE75DC845AA83E6B2C57B1F74294EBE1045E`.
+CVR Link 0.2.4 EXE SHA-256:
+`2798A82BADB9E5797B224B3126F18F61C5CCEFE6E8BEF43F9FB1C2C087934E20`.
 
-## Published downloads
-
-The anonymous EXE and SHA256SUMS downloads match. Tag `v0.2.3` points to
-`9e61555bdb74d450dd64887d113f4e0a845c9d45`.
-Mod.io 6383627 uses Windows **8218361** (default), server **8218362**, and
-Android **8218363**, all 0.2.3. Anonymous ZIP downloads, exact entry names,
-and decompressed PAK hashes match. Platform tags and asset paths are kept,
-and Android-filtered discovery finds the mod. No new device play test ran
-as part of publication.
+All ten runtime files and the settings form match the player-confirmed local
+preview. Packaging changes only the app/setup version. The installed preview
+was not replaced during publication.

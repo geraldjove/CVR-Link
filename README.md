@@ -41,7 +41,18 @@ Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's new in 0.2.3
+### What's new in CVR Link 0.2.4
+
+- **F9:** switch between mouse look and the menu pointer. If a menu is outside
+  your view, press F9, look toward it, then press F9 again to click.
+- **Menu fix:** Tab no longer opens the pause menu over loadout or respawn.
+  These screens keep their pointer until they close.
+- Change the F9 key under **Pointer / mouse look** in CVR Link.
+
+The pointer and menu fix is confirmed in play. It needs the new Windows app.
+The Windows, Quest, and server loadout files stay at 0.2.3.
+
+### Also included
 
 - **FOV:** choose 80 to 120 degrees in UI Settings. The default is 80.
   Click Save settings to change it while playing.
@@ -154,7 +165,7 @@ Its MIT notice is in [UE4SS-LICENSE.txt](release/UE4SS-LICENSE.txt).
 No game files are included in this repo.
 
 For source checks and building the EXE, see [BUILD.md](BUILD.md).
-Read [0.2.3 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
+Read [0.2.4 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
 
 Last verified: **2026-09-16**. Sources: source checks, native desktop and editor
 checks, mod.io download checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)

@@ -115,7 +115,7 @@ function Install-Link([string]$Payload,[string]$GameBin,[string]$StateRoot){
             if($old -and (Get-Hash $before) -eq $old.sha256){$records+=[pscustomobject]@{path=$relative;existed=$old.existed;backup=$old.backup;sha256=$item.sha256}}
             else{$records+=$item}
         }
-        $record=[ordered]@{version='0.2.3';game=[IO.Path]::GetFullPath($GameBin);files=$records}
+        $record=[ordered]@{version='0.2.4';game=[IO.Path]::GetFullPath($GameBin);files=$records}
         $temp=$journal+'.tmp';[IO.File]::WriteAllText($temp,($record | ConvertTo-Json -Depth 5))
         if(Test-Path -LiteralPath $journal){[IO.File]::Replace($temp,$journal,$journal+'.bak')}else{[IO.File]::Move($temp,$journal)}
     }catch{
@@ -129,7 +129,7 @@ function Test-LinkInstalled([string]$Payload,[string]$StateRoot){
     if(-not(Test-Path -LiteralPath $journal)){return $false}
     try{
         $record=Get-Content -Raw -LiteralPath $journal | ConvertFrom-Json
-        if($record.version -ne '0.2.3'){return $false}
+        if($record.version -ne '0.2.4'){return $false}
         if((Get-Hash (Safe-Child $record.game $script:GameExe)) -ne $script:GameHash){return $false}
         foreach($file in $record.files){if((Get-Hash (Safe-Child $record.game $file.path)) -ne $file.sha256){return $false}}
         foreach($lua in $script:LuaFiles){if((Get-Hash (Join-Path $Payload ('runtime\'+$lua))) -ne (Get-Hash (Safe-Child $record.game ('Mods\Flatscreen\Scripts\'+$lua)))){return $false}}
