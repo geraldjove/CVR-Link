@@ -49,3 +49,12 @@ private history, or game files. UE4SS 3.0.1 is bundled under its MIT license.
 
 CVR Link 0.2.2 EXE SHA-256:
 `F9C9320D1E2ED0532ADEE40C1C976CEFEF4316DA5135C24369A1B1C0CB7EC44A`.
+
+## Published downloads
+
+The anonymous EXE and SHA256SUMS downloads match. Tag `v0.2.2` points to
+`a1befff8c3edd256b02271a9bce0bd7e20d94d8d`.
+Mod.io 6383627 uses Windows 8217880 (default), server 8217881, and Android
+8217882, all 0.2.2. Anonymous ZIP downloads, exact entry names, and decompressed
+PAK hashes match. Platform tags are preserved, and an Android-filtered search
+finds the mod. The new Quest and multiplayer behavior still needs play tests.
