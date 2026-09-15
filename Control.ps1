@@ -205,6 +205,7 @@ $timer.Add_Tick({
    elseif($parts[1] -eq 'ERROR'){$status.Text='The mod stopped after an error. Restart Contractors.'}
    elseif(-not $fresh){$status.Text='Waiting for Contractors. Start the game through Steam.'}
    elseif($parts[1] -eq 'RETURNING'){$status.Text='This match needs CVRFlatscreen. Returning to HQ.'}
+   elseif($parts[1] -eq 'WAITING'){$status.Text='Waiting for your player to finish loading. Flatscreen will start on its own.'}
    elseif($parts[1] -eq 'ON'){$status.Text=if($line.Contains('|headset_free=true')){'Flatscreen is on. Click the game window to play.'}else{'Flatscreen is on. Use Virtual Desktop Desktop view.'}}
    elseif($line.Contains('|headset_free=true')){$status.Text='Headset-free start. Flatscreen is paused; enable the link or restart for VR.'}
    elseif($line.Contains('|cvr_room=true')){$status.Text='CVRFlatscreen is ready. Choose your play mode in the game.'}

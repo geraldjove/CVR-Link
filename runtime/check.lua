@@ -4,6 +4,7 @@ local unreadable, read_error = false, false
 local mouse_x, mouse_y = 0, 0
 local camera_rotation = {Pitch=10,Yaw=179,Roll=25}
 local restored_pose, written_location, controller_rotation
+local written_status=''
 local function copy(v)
     local result = {}
     for k,value in pairs(v) do result[k]=value end
@@ -67,8 +68,8 @@ RegisterHook = function(path,callback,third)
     if path:find('CS_Character') then post_tick=callback end
 end
 local native_os, native_io = os, io
-local controls_pawn,controls_stops=nil,0
-package.loaded.Controls={start=function(p) controls_pawn=p end,stop=function() controls_stops=controls_stops+1; controls_pawn=nil end,
+local controls_pawn,controls_stops,controls_ready=nil,0,true
+package.loaded.Controls={start=function(p) if not controls_ready then return false end; controls_pawn=p; return true end,stop=function() controls_stops=controls_stops+1; controls_pawn=nil end,
     tick=function(p) assert(p==controls_pawn,'controls must use the active pawn') end,status=function() return '' end,configure=function() end,
     hud_state=function() return false,false end,
     wants_look=function() return pawn.InputMode~=1 end}
@@ -83,7 +84,7 @@ io = {open=function(path, mode)
     return {read=function()
         if read_error then return nil,'read failed' end
         return lease and tostring(lease) or nil
-    end,write=function() end,close=function() end}
+    end,write=function(_,...) written_status=table.concat({...}) end,close=function() end}
 end}
 dofile('main.lua')
 begin_play({get=function() return pawn end})
@@ -92,6 +93,13 @@ local function tick() now=now+1; post_tick({get=function() return pawn end}) end
 local function check(condition, label) assert(condition,label); count=count+1 end
 tick()
 check(pawn.PlayMode==0 and camera.bLockToHmd, 'inactive startup preserves VR')
+controls_ready=false
+for _=1,3 do lease=now+3; tick() end
+check(pawn.PlayMode==0 and instance.PlayMode==0 and pawn.bVRMode and xr_enabled and camera.bLockToHmd and not controls_pawn,
+    'late local player setup waits without changing camera, mode, XR, or controls')
+check(written_status:find('|WAITING|',1,true),'missing pointer reports waiting instead of a latched error')
+lease=0; tick(); controls_ready=true; tick()
+check(pawn.PlayMode==0 and not controls_pawn,'a pointer arriving after helper off cannot activate flatscreen')
 lease=now+3
 tick()
 check(pawn.PlayMode==1 and instance.PlayMode==1, 'valid lease activates native pancake mode')
@@ -159,6 +167,11 @@ local old_pawn,old_camera,stops=pawn,camera,controls_stops
 camera=object(copy(camera))
 camera.bAutoSetLockToHmd,camera.bLockToHmd=true,true
 pawn=object({address=2,PlayerCamera=camera,PlayMode=0,bVRMode=true})
+controls_ready=false
+active_tick()
+check(pawn.PlayMode==0 and old_pawn.PlayMode==0 and old_camera.bLockToHmd and not controls_pawn and xr_enabled,
+    'respawn releases old controls and waits for the new pointer without latching an error')
+controls_ready=true
 active_tick()
 check(pawn.PlayMode==1 and not pawn.bVRMode and not camera.bLockToHmd and not xr_enabled,
     'respawn reapplies flatscreen to the replacement pawn with the same match choice')

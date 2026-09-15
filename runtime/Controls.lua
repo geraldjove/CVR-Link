@@ -124,6 +124,11 @@ function M.stop()
     state=nil
 end
 function M.start(pawn)
+    -- LocalPlayerSetup creates the menu pointer after the pawn can begin ticking.
+    -- Wait before taking control so a loading/respawning pawn can retry safely.
+    local pointer=pawn.RightUIInteractionActor
+    if not valid(pawn.RightMotionController) or not valid(pawn.LeftMotionController)
+        or not valid(pointer) or not valid(pointer.RootComponent) or not valid(pointer.WidgetInteraction) then return false end
     state={pawn=pawn,keys={},poses={},first=true}
     state.camera,state.fov=pawn.PlayerCamera,pawn.PlayerCamera.FieldOfView
     if valid(pawn.Mesh) then state.hand_mesh={component=pawn.Mesh,visible=pawn.Mesh.bVisible} end
@@ -143,7 +148,7 @@ function M.start(pawn)
         controller:SetTrackingMode(1) -- ANIMATION: keep the interaction tick without tracked hand poses.
         controller:SetComponentTickEnabled(true)
     end
-    state.pointer=pawn.RightUIInteractionActor
+    state.pointer=pointer
     assert(valid(state.pointer), 'right menu pointer unavailable')
     state.pointer_enabled=state.pointer.bIsEnabled
     state.poses[#state.poses+1]=pose(state.pointer.RootComponent)
@@ -157,6 +162,7 @@ function M.start(pawn)
     end
     state.inventory=inventory.new(pawn)
     state.action=actions.new()
+    return true
 end
 local function place(component, camera, forward, sideways, height, rotation)
     local p=camera:K2_GetComponentLocation()

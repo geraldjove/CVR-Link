@@ -26,16 +26,18 @@ $after=(Get-Content -Raw -LiteralPath (Join-Path $state 'install.json') | Conver
 Assert ($before -eq $after) 'Repair keeps the original backup'
 $journal=Join-Path $state 'install.json'
 $legacy=Get-Content -Raw -LiteralPath $journal | ConvertFrom-Json
-$legacy.version='0.1.0'
-[IO.File]::WriteAllText($journal,($legacy | ConvertTo-Json -Depth 5))
-Assert (-not (Test-LinkInstalled $Payload $state)) 'An older app version requires setup even when runtime hashes match'
+foreach($oldVersion in '0.1.0','0.2.0'){
+    $legacy.version=$oldVersion
+    [IO.File]::WriteAllText($journal,($legacy | ConvertTo-Json -Depth 5))
+    Assert (-not (Test-LinkInstalled $Payload $state)) ('Version '+$oldVersion+' requires setup even when runtime hashes match')
+}
 $oldRuntime=Join-Path $game 'Mods\Flatscreen\Scripts\Controls.lua'
 [IO.File]::WriteAllText($oldRuntime,'previous runtime')
 ($legacy.files | Where-Object path -EQ 'Mods\Flatscreen\Scripts\Controls.lua').sha256=Get-Hash $oldRuntime
 [IO.File]::WriteAllText($journal,($legacy | ConvertTo-Json -Depth 5))
 $null=Install-Link $Payload $game $state
 $upgraded=Get-Content -Raw -LiteralPath $journal | ConvertFrom-Json
-Assert ($upgraded.version -eq '0.2.0' -and (Test-LinkInstalled $Payload $state)) 'Upgrade replaces the old runtime and records 0.2.0'
+Assert ($upgraded.version -eq '0.2.1' -and (Test-LinkInstalled $Payload $state)) 'Upgrade replaces the old runtime and records 0.2.1'
 Assert ($upgraded.files[0].backup -eq $before) 'Upgrade keeps the original rollback backup'
 $null=Remove-Link $state
 Assert (-not(Test-Path -LiteralPath (Join-Path $game 'UE4SS.dll'))) 'Remove deletes a loader that we added'

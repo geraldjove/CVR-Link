@@ -49,6 +49,7 @@ local function set(o, name, value)
 end
 local function activate(pawn)
     snapshot = {}
+    if not controls.start(pawn) then snapshot=nil; return end
     local camera = pawn.PlayerCamera
     active_pawn = pawn
     view = rotation(camera:K2_GetComponentRotation())
@@ -67,7 +68,6 @@ local function activate(pawn)
     set(camera, 'bAutoSetLockToHmd', false)
     set(camera, 'bLockToHmd', false)
     set(camera, 'bUsePawnControlRotation', false)
-    controls.start(pawn)
     activations = activations + 1
     print('[Flatscreen] experimental pancake camera ON; original settings captured\n')
 end
@@ -146,7 +146,7 @@ local function tick(context)
         if last_report ~= os.time() then
             last_report = os.time()
             local rot = camera:K2_GetComponentRotation()
-            report((snapshot and 'ON' or 'OFF') .. '|pawn=' .. pawn:GetFName():ToString()
+            report((snapshot and 'ON' or enabled and 'WAITING' or 'OFF') .. '|pawn=' .. pawn:GetFName():ToString()
                 .. '|mode=' .. tostring(pawn.PlayMode) .. '|hmd=' .. tostring(camera.bLockToHmd)
                 .. '|xr=' .. tostring(hmd:IsHeadMountedDisplayEnabled())
                 .. '|headset_free=' .. tostring(headset_free)

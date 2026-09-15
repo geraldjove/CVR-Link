@@ -134,7 +134,25 @@ end
 local controls=dofile('Controls.lua')
 local function tick() controls.tick(pawn,pc,camera,{Pitch=0,Yaw=0,Roll=0}) end
 local function input(values) keys=values or {}; tick() end
-controls.start(pawn)
+-- Local player setup creates the pointers after the pawn can start ticking.
+for _,missing in ipairs({'RightUIInteractionActor','RightMotionController','LeftMotionController'}) do
+    local saved=pawn[missing]
+    pawn[missing]=nil
+    check(controls.start(pawn)==false,'startup waits for missing '..missing)
+    check(not right.bUseWithoutTracking and right.PendingTrackingMode==0 and not pointer.bIsEnabled,
+        'waiting for '..missing..' leaves controls untouched')
+    pawn[missing]=saved
+end
+pointer.invalid=true
+check(controls.start(pawn)==false,'startup waits for an invalid pointer wrapper')
+pointer.invalid=false
+for _,missing in ipairs({'RootComponent','WidgetInteraction'}) do
+    local saved=pointer[missing]
+    pointer[missing]=nil
+    check(controls.start(pawn)==false,'startup waits for pointer '..missing)
+    pointer[missing]=saved
+end
+check(controls.start(pawn)==true,'startup resumes when all control components are ready')
 check(right.tick and left.tick and right.bUseWithoutTracking and right.PendingTrackingMode==1,'controllers retain interaction ticks with animation tracking')
 check(pointer.bIsEnabled,'existing pointer is enabled')
 check(not pointer.StaticMesh.bVisible,'decorative pointer rings are hidden without disabling interaction')
