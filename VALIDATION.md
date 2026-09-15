@@ -38,6 +38,17 @@ The final removal of the after-sprint firing delay is code checked; separate
 live confirmation remains pending. The new platform guard is editor checked;
 the 0.2.0 loadout PAKs still need new live play checks.
 
+## Published download checks
+
+CVR Link 0.2.0 is published on GitHub. Its anonymous EXE download matches:
+`200E2232FCC4EA161A6CBB38B4A91BD73F2796B99DA3F3C5F418188A82EC145A`.
+The release tag points to source commit `9ce0c652eafa43848964f2934ff25fc028529433`.
+
+Mod.io mod 6383627 uses Windows file 8216405, server 8216406, and Android
+8216407. The Windows file is the default. Public platform metadata and all three
+anonymous ZIP downloads match the checked release. Decompressed PAK hashes
+also match. These downloads do not establish live multiplayer support.
+
 ## Limits
 
 Quest device play, mixed PC/Quest multiplayer, dedicated servers, clean-PC
