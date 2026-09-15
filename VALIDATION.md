@@ -1,50 +1,55 @@
-# Release checks
+# Release checks - 0.2.0
 
-Last verified: **2026-09-14**. Sources: the current test scripts, Windows EXE
-checks, native Contractors editor checks, mod.io upload/download records, and
-the recorded local play tests.
+Last verified: **2026-09-15**. Sources: Lua checks, installer and native EXE
+checks, editor verification, package scans, and recorded local play tests.
 
-- 324 Lua checks passed using fake game objects: camera 30, controls 107,
-  inventory 47, ammo 23, item actions 14, placement 21, settings 31, room 14,
-  menu 18, and HUD 19.
-- 23 install checks passed in separate test folders. They cover clean setup,
-  repair, original backups, loader conflicts, changed files, removal, rollback
-  after a failed save, Steam library paths, and an untested game version.
-- The compiled Windows EXE passed the native settings form check. The form has
-  24 key choices, two tabs, range checks, duplicate/reserved key checks, and a
-  save/read check. PowerShell syntax checks passed.
-- The real EXE found the Steam game and completed setup from its Install button.
-  It opened the settings form, made desktop/Start menu shortcuts, and registered
-  Windows Apps removal. All ten installed Lua files matched. Saved settings and
-  the pre-existing unrelated mod file kept their exact hashes. Both setup and
-  settings windows were visually checked, including author and link labels.
-- 47 native editor checks passed for the updated loadout. They cover holders,
-  menus, the HUD, centered crosshair anchors, button bindings, and the compiled
-  Discord/download browser actions. The test does not open external sites.
-- Windows and WindowsServer cooks passed. Each PAK has 25 files under our
-  loadout's namespace. Each upload ZIP has only that PAK in Content. The PAK
-  integrity checks, extracted-file counts, and private-data pattern scans passed.
-  The kit emitted stock asset warnings. A live server test is still pending.
-- Local play checks confirmed mouse/WASD, VR return, menus, E pickup, finite
-  chest ammo, station refills, stable crouch, the fixed crosshair, close aim,
-  wall pullback, icon shape, HUD size, and transparency.
+## Code and build checks
 
-- The final Windows package was installed and play-tested. The author confirmed
-  the popup credit, Discord link, GitHub download link, and both play modes work.
-  Game status also showed flatscreen activation, a held rifle, and return to VR.
-- Both mod.io uploads completed for mod 6383627. The Windows file is 8213876;
-  the server file is 8213875. Both were downloaded without signing in, and their
-  SHA-256 hashes match the tested release ZIPs exactly. The kit reported upload
-  success. A fresh in-game install without the local test copy still needs a
-  play check; these download checks do not prove multiplayer or server support.
+- 462 checks across all ten Lua suites: camera 47, controls 131, inventory 47,
+  ammo 23, item actions 14, placement 21, settings 42, room 36, menu 82, HUD 19.
+  These use fake game objects and do not replace play tests.
+- 26 installer checks pass for setup, repair, upgrades from 0.1.0, preserved rollback
+  backups, loader conflicts, changed files, removal, failed-save rollback,
+  Steam library paths, and unsupported game versions.
+- Native settings checks cover the three tabs, 24 key choices, ranges,
+  duplicate/reserved keys, Experimental startup settings, and saved-file reading.
+  The 0.2.0 EXE check passes; its saved INI passes all 43 settings checks.
+- The EXE contains 17 approved files. Embedded runtime files match source;
+  pinned UE4SS files match their official hashes. Private-data scans pass.
+- 51 editor checks passed after reopening the generated assets. They cover
+  holders, menus, HUD, button bindings, crosshair anchors, and the Quest menu guard.
+- Windows, WindowsServer, and Android ASTC cooks pass. Each PAK contains 25
+  files. Each ZIP has one exact forward-slash Content entry; the decompressed
+  PAK hash matches its cook report. Integrity checks and content scans pass.
 
-Clean-PC setup, the Windows
-permission prompt on a protected Steam folder, more guns and maps, respawns,
-long sessions, and mixed VR/flatscreen multiplayer need more live checks.
-Tests do not prove support for every machine, weapon, or game update.
+## Confirmed in local play
 
-The supplied runtime checks the exact loadout plan, local player choice, and
-app lease. It restores VR when a check fails. This is not server-side enforcement.
+- Mouse/WASD, VR return, menus, pickup, chest ammo, station refills, crouch,
+  crosshair, close aim, wall pullback, HUD icon shape, size, and transparency.
+- Headset-free launch with the headset disconnected and flatscreen remaining
+  active across local pawn replacements in a CVRFlatscreen bot match.
+- Leaving a headset-free match returns to HQ without the earlier UE crash.
+- Rejection from an unsupported online server leaves a clean HQ with no old
+  server membership or further player-join notices.
+- Sprint gun motion, faster aim timing, Shift alone staying still, and
+  releasing Shift to stop sprint.
 
-The first EXE is unsigned. No signing certificate, game account data, telemetry,
-or upload credentials are included. UE4SS 3.0.1 is bundled under its MIT license.
+The final removal of the after-sprint firing delay is code checked; separate
+live confirmation remains pending. The new platform guard is editor checked;
+the 0.2.0 loadout PAKs still need new live play checks.
+
+## Limits
+
+Quest device play, mixed PC/Quest multiplayer, dedicated servers, clean-PC
+setup, Windows elevation on a protected Steam folder, more maps and guns,
+repeated travel/rejoin, and long sessions remain unverified. A fresh download
+still needs play without the local development copy. Gadget hands stay hidden;
+loose-round pouch guns lack keyboard reload support.
+
+Quest mouse-and-keyboard work is deferred. The current Quest loadout is a VR
+controller preview. Custom maps must support the player's platform.
+
+The exact loadout, local mode choice, and live app checks run on the player's
+PC. Experimental also allows the local HQ. This is not server anti-cheat.
+The EXE is unsigned. No account tokens, private history, or game files are in
+the public source. UE4SS 3.0.1 is bundled under its MIT license.

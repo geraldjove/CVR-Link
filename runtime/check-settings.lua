@@ -30,6 +30,15 @@ check(saved.ui_scale==.75 and saved.ui_opacity==.6,'HUD size and opacity round t
 for _,bad in ipairs({'ui_scale=nope','ui_opacity=nope','ui_scale=0.49','ui_scale=1.51','ui_opacity=0.09','ui_opacity=1.01','ui_scale=1\nui_scale=1'}) do
     check(not S.parse(bad),'bad HUD setting rejected: '..bad)
 end
+check(not S.defaults().experimental_start and not old.experimental_start,'Experimental is off for defaults and old files')
+local experimental=S.defaults(); experimental.experimental_start=true
+check(assert(S.parse(assert(S.encode(experimental)))).experimental_start,'Experimental opt-in round trips')
+for _,bad in ipairs({'true','false','2','-1','0.5','01',''}) do
+    check(not S.parse('experimental_start='..bad),'invalid Experimental value rejected: '..bad)
+end
+check(not S.parse('experimental_start=1\nexperimental_start=0'),'duplicate Experimental preference rejected')
+experimental.experimental_start=1
+check(not S.validate(experimental),'Experimental requires a boolean in validated settings')
 if arg[1] then
     local file=assert(io.open(arg[1],'r'))
     local gui=file:read('*a'); file:close()

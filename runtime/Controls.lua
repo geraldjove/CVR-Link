@@ -270,16 +270,32 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
             state.slide_deadline=nil
         end
     end
-    local sprint=down.LeftShift and not menu and not aiming
-    if sprint and not crouch and not pawn:GetIsSliding() and not pawn:IsSprinting() then
-        pawn:SetSprint(true,false); state.sprint_owned=true
-    elseif not sprint and state.sprint_owned then
+    -- SetSprint can auto-run in the stock game. Only request it with forward input.
+    local sprint=down.LeftShift and down_key(pc,'W') and not down_key(pc,'S') and not menu and not aiming
+    if sprint and not crouch and not pawn:GetIsSliding() then
+        if not pawn:IsSprinting() then pawn:SetSprint(true,false) end
+        state.sprint_owned=true
+    elseif not sprint and (state.sprint_owned or pawn:IsSprinting()) then
         pawn:SetSprint(false,false); state.sprint_owned=false
     end
-    if (menu or over_ui) and state.firing then release_fire() end
+    local velocity=movement.Velocity
+    local running=pawn:IsSprinting() and not menu and not crouch and not pawn:GetIsSliding()
+        and velocity.X*velocity.X+velocity.Y*velocity.Y>1
+    local now=os.clock()
+    if running~=(state.sprinting or false) then
+        state.sprint_from,state.sprint_started=state.sprint_amount or 0,now
+        if not running then state.sprint_aim_ready_at=now+.3 end
+        state.sprinting=running
+    end
+    local progress=math.min(1,math.max(0,(now-(state.sprint_started or now))/(running and .2 or .5)))
+    local goal=running and 1 or 0
+    state.sprint_amount=(state.sprint_from or 0)+(goal-(state.sprint_from or 0))*progress*progress*(3-2*progress)
+    state.sprint_blocked=running
+    state.sprint_aim_blocked=running or now<(state.sprint_aim_ready_at or 0)
+    if (menu or over_ui or state.sprint_blocked) and state.firing then release_fire() end
     if pressed.LeftMouseButton then
         if over_ui then state.pointer:PressPointerKey(key('LeftMouseButton')); state.click=true
-        elseif not menu and not state.inventory.pending and not state.reload_deadline then
+        elseif not menu and not state.inventory.pending and not state.reload_deadline and not state.sprint_blocked then
             if not actions.press(state.action,inventory.held(state.right),pc,state.left,state.right) then
                 state.right:OnTriggerAxisChanged(1); state.firing=true
             end
@@ -335,7 +351,8 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     if not same(state.aim_weapon,gun) then
         state.aim_weapon,state.ads_amount,state.ads_goal,state.sight=gun,0,nil,nil
     end
-    aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending and not state.reload_deadline
+    aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending
+        and not state.reload_deadline and not state.sprint_aim_blocked
     state.aiming=aiming and not state.zoom_mode
     if valid(state.ads_gun) and (not same(state.ads_gun,gun) or not state.aiming) then
         state.ads_gun:SetPancakeAimingDownSight(false); state.ads_gun=nil
@@ -455,8 +472,9 @@ function M.apply_gun_pose(gun,output)
     local reload=state.reload_deadline and same(state.reload_gun,gun)
         and math.sin(math.pi*math.max(0,math.min(1,1-(state.reload_deadline-os.clock())/1.5))) or 0
     local switching=inventory.lowering(state.inventory,gun)
-    if reload>0 or switching>0 then
-        local back,down=10*reload+14*switching,14*reload+38*switching
+    local sprint=aim~=nil and (state.sprint_amount or 0) or 0
+    if reload>0 or switching>0 or sprint>0 then
+        local back,down=10*reload+14*switching+8*sprint,14*reload+38*switching+22*sprint
         target.X=target.X-f.X*back-u.X*down
         target.Y=target.Y-f.Y*back-u.Y*down
         target.Z=target.Z-f.Z*back-u.Z*down
@@ -480,8 +498,8 @@ function M.apply_gun_pose(gun,output)
     if grip_turn then view=multiply(view,grip_turn) end
     local orientation=placement.orientation(gun) or multiply(view,{X=-q.X,Y=-q.Y,Z=-q.Z,W=q.W})
     local offset=rotate(orientation,reference.Translation)
-    if reload>0 or switching>0 then
-        local pitch,roll=math.rad(18*reload+30*switching)*.5,math.rad(35*reload+15*switching)*.5
+    if reload>0 or switching>0 or sprint>0 then
+        local pitch,roll=math.rad(18*reload+30*switching+25*sprint)*.5,math.rad(35*reload+15*switching+8*sprint)*.5
         orientation=multiply(orientation,multiply({X=0,Y=math.sin(pitch),Z=0,W=math.cos(pitch)},
             {X=-math.sin(roll),Y=0,Z=0,W=math.cos(roll)}))
     end
@@ -505,6 +523,8 @@ function M.status()
     return '|menu='..tostring(state.pawn.InputMode)..'|gun='..(valid(gun) and gun:GetFName():ToString() or 'none')
         ..'|pointer='..tostring(state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget())
         ..'|crouch='..tostring(state.pawn:IsCrouching())..'|sprint='..tostring(state.pawn:IsSprinting())
+        ..'|sprint_lower='..tostring(state.sprint_amount or 0)..'|sprint_blocked='..tostring(state.sprint_blocked or false)
+        ..'|sprint_aim_blocked='..tostring(state.sprint_aim_blocked or false)
         ..'|slide='..tostring(state.pawn:GetIsSliding())
         ..'|slides_started='..tostring(state.slides_started or 0)
         ..'|pose_writes='..tostring(state.pose_writes or 0)

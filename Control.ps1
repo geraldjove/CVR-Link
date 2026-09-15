@@ -30,11 +30,19 @@ function Format-Key([string]$Key){
  if($Key -in $digits){return [string][array]::IndexOf($digits,$Key)}
  return ($Key -creplace '([a-z])([A-Z])','$1 $2')
 }
-function Encode-Settings([decimal]$Mouse,[decimal]$Aim,$Keys,[decimal]$Scale=1,[decimal]$Opacity=1){
+function Start-Contractors([bool]$HeadsetFree){
+ if(Get-Process Contractors,Contractors_UE4_22_Steam-Win64-Shipping -ErrorAction SilentlyContinue){throw 'Contractors is already running. Close it normally before starting a new mode.'}
+ if($HeadsetFree){
+  $steamExe=(Get-ItemProperty -LiteralPath 'HKCU:\Software\Valve\Steam').SteamExe
+  if(-not $steamExe -or -not(Test-Path -LiteralPath $steamExe -PathType Leaf)){throw 'Open Steam and sign in before starting Contractors.'}
+  Start-Process -FilePath $steamExe -ArgumentList '-applaunch 963930 -nohmd -windowed' -WindowStyle Hidden
+ }else{Start-Process -FilePath 'steam://rungameid/963930'}
+}
+function Encode-Settings([decimal]$Mouse,[decimal]$Aim,$Keys,[decimal]$Scale=1,[decimal]$Opacity=1,[bool]$ExperimentalStart=$false){
  if($Mouse -lt .1 -or $Mouse -gt 10 -or $Aim -lt .1 -or $Aim -gt 10){throw 'Mouse and aim speeds must be from 0.1 to 10.'}
  if($Scale -lt .5 -or $Scale -gt 1.5 -or $Opacity -lt .1 -or $Opacity -gt 1){throw 'HUD size must be 50% to 150%, and transparency 0% to 90%.'}
  $used=@{}
- $lines=@(('mouse='+$Mouse.ToString('0.##',$invariant)),('aim='+$Aim.ToString('0.##',$invariant)),('ui_scale='+$Scale.ToString('0.##',$invariant)),('ui_opacity='+$Opacity.ToString('0.##',$invariant)))
+ $lines=@(('mouse='+$Mouse.ToString('0.##',$invariant)),('aim='+$Aim.ToString('0.##',$invariant)),('ui_scale='+$Scale.ToString('0.##',$invariant)),('ui_opacity='+$Opacity.ToString('0.##',$invariant)),('experimental_start='+[int]$ExperimentalStart))
  foreach($action in $actions.Keys){
   $key=[string]$Keys[$action]
   if($key -cnotin @($keyCodes.Keys)){throw 'Choose a keyboard or mouse key. F7, F8 and Escape stay fixed.'}
@@ -46,7 +54,7 @@ function Encode-Settings([decimal]$Mouse,[decimal]$Aim,$Keys,[decimal]$Scale=1,[
 function Read-Settings([string]$Text){
  if($Text.Length -gt 8192){throw 'Settings file is too large.'}
  $keys=[ordered]@{};foreach($key in $actions.Keys){$keys[$key]=$key}
- $mouse=[decimal]2.5;$aim=[decimal]1;$scale=[decimal]1;$opacity=[decimal]1;$seen=@{}
+ $mouse=[decimal]2.5;$aim=[decimal]1;$scale=[decimal]1;$opacity=[decimal]1;$experimentalStart=$false;$seen=@{}
  foreach($line in ($Text -split '\r?\n' | Where-Object {$_ -ne ''})){
   if($line -cnotmatch '^([\w_]+)=([\w_.]+)$' -or $seen.ContainsKey($Matches[1])){throw 'Settings file has a bad or repeated entry.'}
   $name=$Matches[1];$value=$Matches[2];$seen[$name]=$true
@@ -54,10 +62,11 @@ function Read-Settings([string]$Text){
   elseif($name -ceq 'aim'){$aim=[decimal]::Parse($value,$invariant)}
   elseif($name -ceq 'ui_scale'){$scale=[decimal]::Parse($value,$invariant)}
   elseif($name -ceq 'ui_opacity'){$opacity=[decimal]::Parse($value,$invariant)}
+  elseif($name -ceq 'experimental_start'){if($value -cnotin @('0','1')){throw 'Experimental start must be 0 or 1.'};$experimentalStart=$value -ceq '1'}
   elseif($name -cin @($keys.Keys)){$keys[$name]=$value}else{throw 'Settings file has an unknown entry.'}
  }
- $null=Encode-Settings $mouse $aim $keys $scale $opacity
- return @{Mouse=$mouse;Aim=$aim;Keys=$keys;Scale=$scale;Opacity=$opacity}
+ $null=Encode-Settings $mouse $aim $keys $scale $opacity $experimentalStart
+ return @{Mouse=$mouse;Aim=$aim;Keys=$keys;Scale=$scale;Opacity=$opacity;ExperimentalStart=$experimentalStart}
 }
 function Write-Atomic([string]$Path,[string]$Text){
  $temp=$Path+'.tmp';[IO.File]::WriteAllText($temp,$Text,[Text.UTF8Encoding]::new($false))
@@ -74,7 +83,7 @@ $form.Controls.Add($layout)
 $header=[Windows.Forms.Panel]::new();$header.Dock='Fill';$header.Margin=[Windows.Forms.Padding]::new(0)
 $header.Add_Paint({param($sender,$event) $brush=[Drawing.Drawing2D.LinearGradientBrush]::new($sender.ClientRectangle,[Drawing.Color]::Black,[Drawing.Color]::FromArgb(120,8,15),90);try{$event.Graphics.FillRectangle($brush,$sender.ClientRectangle)}finally{$brush.Dispose()}})
 $title=[Windows.Forms.Label]::new();$title.Text='CVR Link';$title.Font=[Drawing.Font]::new('Segoe UI',26,[Drawing.FontStyle]::Bold);$title.AutoSize=$true;$title.Location=[Drawing.Point]::new(20,10);$title.BackColor=[Drawing.Color]::Transparent
-$subtitle=[Windows.Forms.Label]::new();$subtitle.Text="Your keys. Your aim. Your way to play.`nStart in VR, then choose Flatscreen in a CVRFlatscreen map.";$subtitle.AutoSize=$true;$subtitle.Location=[Drawing.Point]::new(23,62);$subtitle.BackColor=[Drawing.Color]::Transparent
+$subtitle=[Windows.Forms.Label]::new();$subtitle.Text="Your keys. Your aim. Your way to play.`nChoose your mode in game, or try Experimental start.";$subtitle.AutoSize=$true;$subtitle.Location=[Drawing.Point]::new(23,62);$subtitle.BackColor=[Drawing.Color]::Transparent
 $header.Controls.AddRange(@($title,$subtitle));$layout.Controls.Add($header,0,0)
 $options=[Windows.Forms.TableLayoutPanel]::new();$options.Dock='Fill';$options.ColumnCount=2;$options.RowCount=3;$options.Padding=[Windows.Forms.Padding]::new(18,4,18,0)
 $options.ColumnStyles.Add([Windows.Forms.ColumnStyle]::new('Percent',65))|Out-Null;$options.ColumnStyles.Add([Windows.Forms.ColumnStyle]::new('Percent',35))|Out-Null
@@ -99,7 +108,8 @@ foreach($key in $actions.Keys){
 $tabs=[Windows.Forms.TabControl]::new();$tabs.Dock='Fill'
 $keyTab=[Windows.Forms.TabPage]::new('Keybinds');$keyTab.BackColor=$form.BackColor;$keyTab.ForeColor=$form.ForeColor
 $uiTab=[Windows.Forms.TabPage]::new('UI Settings');$uiTab.BackColor=$form.BackColor;$uiTab.ForeColor=$form.ForeColor
-$tabs.TabPages.AddRange(@($keyTab,$uiTab));$layout.Controls.Add($tabs,0,2)
+$experimentalTab=[Windows.Forms.TabPage]::new('Experimental');$experimentalTab.BackColor=$form.BackColor;$experimentalTab.ForeColor=$form.ForeColor
+$tabs.TabPages.AddRange(@($keyTab,$uiTab,$experimentalTab));$layout.Controls.Add($tabs,0,2)
 $scroll.Controls.Add($rows);$keyTab.Controls.Add($scroll)
 $uiRows=[Windows.Forms.TableLayoutPanel]::new();$uiRows.Dock='Top';$uiRows.AutoSize=$true;$uiRows.ColumnCount=2;$uiRows.Padding=[Windows.Forms.Padding]::new(18)
 $uiRows.ColumnStyles.Add([Windows.Forms.ColumnStyle]::new('Percent',65))|Out-Null;$uiRows.ColumnStyles.Add([Windows.Forms.ColumnStyle]::new('Percent',35))|Out-Null
@@ -111,6 +121,12 @@ foreach($entry in @(@('Scale','HUD size (%)',50,150,100),@('Transparency','HUD t
 }
 $uiHint=[Windows.Forms.Label]::new();$uiHint.Text="Change the size and see-through look of your HUD.`n0% transparency is solid. 90% is almost clear.`nClick Save settings to apply changes in the game.";$uiHint.AutoSize=$true;$uiHint.MaximumSize=[Drawing.Size]::new(490,0);$uiHint.Margin=[Windows.Forms.Padding]::new(0,20,0,0)
 $uiRows.Controls.Add($uiHint,0,2);$uiRows.SetColumnSpan($uiHint,2);$uiTab.Controls.Add($uiRows)
+$experimentalRows=[Windows.Forms.FlowLayoutPanel]::new();$experimentalRows.Dock='Fill';$experimentalRows.FlowDirection='TopDown';$experimentalRows.WrapContents=$false;$experimentalRows.AutoScroll=$true;$experimentalRows.Padding=[Windows.Forms.Padding]::new(18)
+$experimental=[Windows.Forms.CheckBox]::new();$experimental.Text='Start in Flatscreen (experimental)';$experimental.AutoSize=$true;$experimental.AccessibleName='Start in Flatscreen (experimental)'
+$experimentalHint=[Windows.Forms.Label]::new();$experimentalHint.Text="Start Contractors with a mouse and keyboard. No headset is needed when you use the start button below.`n`nPlay from the local HQ and join matches using the exact CVRFlatscreen loadout, on any map. Other matches return you to HQ.`n`nKeep CVR Link open and enabled. Close the game before starting this mode. To play in VR, close the game, turn this option off, and start again.`n`nSave settings alone cannot change how a running game was started.";$experimentalHint.AutoSize=$true;$experimentalHint.MaximumSize=[Drawing.Size]::new(470,0);$experimentalHint.Margin=[Windows.Forms.Padding]::new(0,16,0,16)
+$startGame=[Windows.Forms.Button]::new();$startGame.Text='Save and start Contractors';$startGame.Width=260;$startGame.Height=38;$startGame.FlatStyle='Flat';$startGame.BackColor=[Drawing.Color]::FromArgb(155,12,24);$startGame.AccessibleName=$startGame.Text
+$startGame.Add_Click({try{Save-Settings;$active.Checked=$true;Start-Contractors $experimental.Checked;$message.Text='Starting Contractors through Steam. Keep CVR Link enabled.'}catch{$message.Text=$_.Exception.Message}})
+$experimentalRows.Controls.AddRange(@($experimental,$experimentalHint,$startGame));$experimentalTab.Controls.Add($experimentalRows)
 $tabs.Add_SelectedIndexChanged({if($script:capture){$script:capture=$null;Refresh-Keys;$message.Text='Key change cancelled.'}})
 $footer=[Windows.Forms.FlowLayoutPanel]::new();$footer.Dock='Fill';$footer.Padding=[Windows.Forms.Padding]::new(18,3,0,0)
 $save=[Windows.Forms.Button]::new();$save.Text='Save settings';$save.Width=180;$save.Height=35;$save.FlatStyle='Flat';$save.BackColor=[Drawing.Color]::FromArgb(155,12,24)
@@ -128,21 +144,38 @@ foreach($entry in @(@('Discord updates','https://discord.gg/432n3NTq9f'),@('Down
 }
 $layout.Controls.Add($community,0,5)
 function Refresh-Keys {foreach($key in $actions.Keys){$keyButtons[$key].Text=Format-Key $bindings[$key]}}
-$save.Add_Click({try{$text=Encode-Settings $speeds.Mouse.Value $speeds.Aim.Value $bindings ($uiInputs.Scale.Value/100) (1-$uiInputs.Transparency.Value/100);Write-Atomic $settingsPath $text;$script:savedText=$text;$message.Text='Saved. Waiting for the game to apply your settings.'}catch{$message.Text=$_.Exception.Message}})
-$reset.Add_Click({$speeds.Mouse.Value=2.5;$speeds.Aim.Value=1;$uiInputs.Scale.Value=100;$uiInputs.Transparency.Value=0;foreach($key in $actions.Keys){$bindings[$key]=$key};$script:capture=$null;Refresh-Keys;$message.Text='Defaults are ready. Click Save settings to apply them.'})
-if(Test-Path -LiteralPath $settingsPath){try{$loaded=Read-Settings ([IO.File]::ReadAllText($settingsPath));$speeds.Mouse.Value=$loaded.Mouse;$speeds.Aim.Value=$loaded.Aim;$uiInputs.Scale.Value=$loaded.Scale*100;$uiInputs.Transparency.Value=(1-$loaded.Opacity)*100;foreach($key in $actions.Keys){$bindings[$key]=$loaded.Keys[$key]};Refresh-Keys}catch{$message.Text='Could not read saved settings. Defaults are shown. '+$_.Exception.Message}}
+function Save-Settings {$text=Encode-Settings $speeds.Mouse.Value $speeds.Aim.Value $bindings ($uiInputs.Scale.Value/100) (1-$uiInputs.Transparency.Value/100) $experimental.Checked;Write-Atomic $settingsPath $text;$script:savedText=$text;$message.Text='Saved. Waiting for the game to apply your settings.'}
+$save.Add_Click({try{Save-Settings}catch{$message.Text=$_.Exception.Message}})
+$reset.Add_Click({$speeds.Mouse.Value=2.5;$speeds.Aim.Value=1;$uiInputs.Scale.Value=100;$uiInputs.Transparency.Value=0;$experimental.Checked=$false;foreach($key in $actions.Keys){$bindings[$key]=$key};$script:capture=$null;Refresh-Keys;$message.Text='Defaults are ready. Click Save settings to apply them.'})
+if(Test-Path -LiteralPath $settingsPath){try{$loaded=Read-Settings ([IO.File]::ReadAllText($settingsPath));$speeds.Mouse.Value=$loaded.Mouse;$speeds.Aim.Value=$loaded.Aim;$uiInputs.Scale.Value=$loaded.Scale*100;$uiInputs.Transparency.Value=(1-$loaded.Opacity)*100;$experimental.Checked=$loaded.ExperimentalStart;foreach($key in $actions.Keys){$bindings[$key]=$loaded.Keys[$key]};Refresh-Keys}catch{$message.Text='Could not read saved settings. Defaults are shown. '+$_.Exception.Message}}
 if($Check){
- $text=Encode-Settings 2.5 1 $bindings .8 .65;$parsed=Read-Settings $text
- if($tabs.TabPages.Count -ne 2 -or $parsed.Scale -ne .8 -or $parsed.Opacity -ne .65){throw 'HUD tabs or settings did not round trip'}
+ $text=Encode-Settings 2.5 1 $bindings .8 .65 $true;$parsed=Read-Settings $text
+ if($tabs.TabPages.Count -ne 3 -or $parsed.Scale -ne .8 -or $parsed.Opacity -ne .65 -or -not $parsed.ExperimentalStart){throw 'Tabs or settings did not round trip'}
+ foreach($bad in @('true','false','2','-1','0.5','01')){$rejected=$false;try{$null=Read-Settings ('experimental_start='+$bad)}catch{$rejected=$true};if(-not $rejected){throw 'Invalid Experimental setting accepted'}}
  foreach($badUi in @(@(.49,1),@(1.51,1),@(1,.09),@(1,1.01))){$rejected=$false;try{$null=Encode-Settings 2.5 1 $bindings $badUi[0] $badUi[1]}catch{$rejected=$true};if(-not $rejected){throw 'Invalid HUD settings accepted'}}
- $old=Read-Settings "mouse=0.8`naim=1`n";if($old.Scale -ne 1 -or $old.Opacity -ne 1 -or $old.Mouse -ne .8){throw 'Old settings did not retain defaults'}
+ $old=Read-Settings "mouse=0.8`naim=1`n";if($old.Scale -ne 1 -or $old.Opacity -ne 1 -or $old.Mouse -ne .8 -or $old.ExperimentalStart){throw 'Old settings did not retain defaults'}
  if($keyButtons.Count -ne 24 -or $parsed.Keys.Count -ne 24){throw 'Missing control'}
  $bad=[ordered]@{};foreach($key in $actions.Keys){$bad[$key]=$key};$bad.E='G';$rejected=$false
  try{$null=Encode-Settings 2.5 1 $bad}catch{$rejected=$true};if(-not $rejected){throw 'Duplicate keys accepted'}
  $bad.E='F7';$rejected=$false;try{$null=Encode-Settings 2.5 1 $bad}catch{$rejected=$true};if(-not $rejected){throw 'Reserved key accepted'}
  $scratch=Join-Path $PSScriptRoot '.deps';New-Item -ItemType Directory -Path $scratch -Force|Out-Null
  Write-Atomic (Join-Path $scratch 'gui-settings.ini') $text;Write-Atomic (Join-Path $scratch 'gui-settings.ini') $text
- $form.Dispose();'CVR Link: native form, 24 controls, settings round trip, duplicate/reserved keys, and atomic save passed.';return
+ $script:launch=$null;$script:testRunning=$false
+ function Get-Process {if($script:testRunning){return @{Id=1}}}
+ function Get-ItemProperty {return @{SteamExe='C:\Steam\steam.exe'}}
+ function Test-Path {return $true}
+ function Start-Process {param($FilePath,$ArgumentList,$WindowStyle);$script:launch=@($FilePath,$ArgumentList)}
+ Start-Contractors $true
+ if($script:launch[0] -ne 'C:\Steam\steam.exe' -or $script:launch[1] -ne '-applaunch 963930 -nohmd -windowed'){throw 'Headset-free Steam launch is wrong'}
+ Start-Contractors $false
+ if($script:launch[0] -ne 'steam://rungameid/963930' -or $script:launch[1]){throw 'Normal VR launch was changed'}
+ $script:testRunning=$true;$script:launch=$null;$rejected=$false
+ try{Start-Contractors $true}catch{$rejected=$true}
+ if(-not $rejected -or $script:launch){throw 'A second game launch was not blocked'}
+ $script:testRunning=$false;function Test-Path {return $false};$rejected=$false
+ try{Start-Contractors $true}catch{$rejected=$true}
+ if(-not $rejected -or $script:launch){throw 'Missing Steam executable was not handled'}
+ $form.Dispose();'CVR Link: native form, 24 controls, three tabs, settings round trip, atomic save, and Steam launch checks passed.';return
 }
 New-Item -ItemType Directory -Path $directory -Force|Out-Null
 $mutex=[Threading.Mutex]::new($false,'Local\ContractorsFlatscreenControl')
@@ -162,7 +195,7 @@ $timer.Add_Tick({
  $script:pressed=$down
  if($now-$script:lastLease -ge 250){
   $script:lastLease=$now
-  try{$deadline=if($active.Checked){[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()+2}else{0};Write-Atomic (Join-Path $directory 'control.txt') ([string]$deadline)}catch{$status.Text='Link interrupted. The game will return to VR.'}
+  try{$deadline=if($active.Checked){[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()+2}else{0};Write-Atomic (Join-Path $directory 'control.txt') ([string]$deadline)}catch{$status.Text='Link interrupted. Flatscreen controls will stop.'}
  }
  if($now-$script:lastStatus -ge 500){
   $script:lastStatus=$now
@@ -170,12 +203,14 @@ $timer.Add_Tick({
    $line=[IO.File]::ReadAllText((Join-Path $directory 'status.txt')).Trim();$parts=$line -split '\|';$stamp=0L;$fresh=[long]::TryParse($parts[0],[ref]$stamp) -and ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds()-$stamp -le 4)
    if(-not $active.Checked){$status.Text='CVR Link is off. F7 turns it on.'}
    elseif($parts[1] -eq 'ERROR'){$status.Text='The mod stopped after an error. Restart Contractors.'}
-   elseif(-not $fresh){$status.Text='Waiting for Contractors. Start the game in VR.'}
-   elseif($parts[1] -eq 'ON'){$status.Text='Flatscreen is on. Use Virtual Desktop Desktop view.'}
+   elseif(-not $fresh){$status.Text='Waiting for Contractors. Start the game through Steam.'}
+   elseif($parts[1] -eq 'RETURNING'){$status.Text='This match needs CVRFlatscreen. Returning to HQ.'}
+   elseif($parts[1] -eq 'ON'){$status.Text=if($line.Contains('|headset_free=true')){'Flatscreen is on. Click the game window to play.'}else{'Flatscreen is on. Use Virtual Desktop Desktop view.'}}
+   elseif($line.Contains('|headset_free=true')){$status.Text='Headset-free start. Flatscreen is paused; enable the link or restart for VR.'}
    elseif($line.Contains('|cvr_room=true')){$status.Text='CVRFlatscreen is ready. Choose your play mode in the game.'}
-   else{$status.Text='VR is on. Enter a CVRFlatscreen map to use flatscreen.'}
+   else{$status.Text='VR is on. This match needs the CVRFlatscreen loadout for flatscreen.'}
    if($fresh -and $script:savedText -and $line.Contains('|settings='+($script:savedText -replace "`n",','))){$message.Text='Settings applied in game.';$script:savedText=$null}
-  }catch{$status.Text='Waiting for Contractors. Start the game in VR.'}
+  }catch{$status.Text='Waiting for Contractors. Start the game through Steam.'}
  }
 })
 try{$timer.Start();[void]$form.ShowDialog()}

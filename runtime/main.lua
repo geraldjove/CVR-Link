@@ -1,6 +1,7 @@
 -- Startup-only experimental bridge. All UObject access stays on the game thread.
 local folder = assert(os.getenv('LOCALAPPDATA')) .. '/ContractorsFlatscreen/'
 local gameplay = StaticFindObject('/Script/Engine.Default__GameplayStatics')
+local system = StaticFindObject('/Script/Engine.Default__KismetSystemLibrary')
 local hmd = StaticFindObject('/Script/HeadMountedDisplay.Default__HeadMountedDisplayFunctionLibrary')
 local controls = require('Controls')
 local menu = require('Menu')
@@ -9,6 +10,7 @@ local snapshot, hooked, last_poll, last_report = nil, false, -1, 0
 local failed = false
 local active_pawn, view, original_pose
 local previous_hmd
+local headset_free,denied_world,denied_since,returned_world
 local lease_deadline, read_misses, activations, restorations = 0, 0, 0, 0
 local function valid(o) return o and o:IsValid() end
 local function vector(v) return {X=v.X,Y=v.Y,Z=v.Z} end
@@ -98,9 +100,32 @@ local function tick(context)
         local pc = gameplay:GetPlayerController(pawn, 0)
         local camera = pawn.PlayerCamera
         local ready=lease_deadline>os.time() and lease_deadline<=os.time()+3
-        local enabled=menu.update(pawn,pc,gameplay:GetGameState(pawn),ready)
+        local game=gameplay:GetGameState(pawn)
+        local standalone=system:IsStandalone(pawn)
+        if headset_free==nil then
+            -- Capture before our first EnableHMD(false). The shipping game's
+            -- GetCommandLine no longer contains the original Steam launch flags.
+            headset_free=not hmd:IsHeadMountedDisplayConnected()
+        end
+        local enabled,unsupported=menu.update(pawn,pc,game,ready,standalone,headset_free)
         if enabled and not snapshot then activate(pawn) end
         if not enabled and snapshot then restore('VR selected, unsupported room, or helper off') end
+        local world=valid(game) and game:GetFullName() or nil
+        if world and returned_world~=world then returned_world=nil end
+        if headset_free and unsupported then
+            if denied_world~=world then denied_world,denied_since=world,os.time() end
+            -- Keep controls off while replication settles. Use Contractors' own
+            -- Leave Match action once per world: the engine's generic return
+            -- changes maps without clearing the game's online lobby membership.
+            if returned_world~=world and os.time()-denied_since>=3 then
+                returned_world=world
+                report('RETURNING|headset_free=true|reason=This match needs the CVRFlatscreen loadout')
+                print('[Flatscreen] unsupported loadout; returning headset-free player to HQ\n')
+                pc:ClientLeaveGame()
+                return -- Travel may invalidate every object captured above.
+            end
+        else denied_world,denied_since=nil,nil end
+        if returned_world then return end
         if snapshot then
             controls.configure(menu.settings.keys)
             local sensitivity=menu.settings.mouse
@@ -124,9 +149,12 @@ local function tick(context)
             report((snapshot and 'ON' or 'OFF') .. '|pawn=' .. pawn:GetFName():ToString()
                 .. '|mode=' .. tostring(pawn.PlayMode) .. '|hmd=' .. tostring(camera.bLockToHmd)
                 .. '|xr=' .. tostring(hmd:IsHeadMountedDisplayEnabled())
+                .. '|headset_free=' .. tostring(headset_free)
                 .. '|rotation=' .. tostring(rot.Pitch) .. ',' .. tostring(rot.Yaw) .. ',' .. tostring(rot.Roll)
                 .. '|mouse=' .. tostring(axis(pc,'MouseX'))
                 .. '|activations=' .. activations .. '|restorations=' .. restorations .. '|read_misses=' .. read_misses
+                .. '|standalone=' .. tostring(standalone)
+                .. '|game_mode=' .. (valid(game) and valid(game.GameModeClass) and game.GameModeClass:GetFullName() or 'unknown')
                 .. menu.status() .. controls.status())
         end
     end,function(reason) return debug.traceback(tostring(reason),2) end)
@@ -144,14 +172,14 @@ end
 -- (UE4SS issue #467), crashing when the Free Roam start button calls it.
 local function before_travel()
     local ok,reason=pcall(function()
-        menu.clear(active_pawn)
+        menu.clear(active_pawn,true)
         restore('map travel')
         lease_deadline=0
     end)
     if not ok then failed=true; report('ERROR|map restoration: '..tostring(reason)) end
 end
--- Our own holder's Blueprint exit runs on local unload and loadout replacement.
--- It covers map changes that do not go through a PlayerController travel call.
+-- Non-destruction holder exits cover unloads outside controller travel calls.
+-- Death/replacement keeps the match choice; menu.update still checks the plan.
 menu.on_exit=before_travel
 for _,name in ipairs({'ClientTravel','ClientTravelInternal','ClientReturnToMainMenu','ClientReturnToMainMenuWithTextReason'}) do
     RegisterHook('/Script/Engine.PlayerController:'..name,function(context)
@@ -159,6 +187,12 @@ for _,name in ipairs({'ClientTravel','ClientTravelInternal','ClientReturnToMainM
         if valid(pc) and pc:IsLocalController() then before_travel() end
     end)
 end
+-- Contractors has its own leave-session RPC as well as the engine travel calls.
+-- Restore while its current pawn, HUD and controls still exist.
+RegisterHook('/Script/ZomboyVR.ZomboyPlayerController:ClientLeaveGame',function(context)
+    local pc=context:get()
+    if valid(pc) and pc:IsLocalController() then before_travel() end
+end)
 local function capture_recoil(context,...)
     if failed or not snapshot or lease_deadline<=os.time() then return end
     local args=table.pack(...)
@@ -202,4 +236,4 @@ RegisterBeginPlayPostHook(function(context)
     if not ok then failed=true; hooked=true; report('ERROR|' .. tostring(reason)); print('[Flatscreen] ' .. tostring(reason) .. '\n') end
 end)
 report('LOADED|waiting for local character')
-print('[Flatscreen] loaded; VR stays on until CVRFlatscreen is selected and the player chooses Flatscreen\n')
+print('[Flatscreen] loaded; exact CVRFlatscreen loadout required in matches; Experimental permits local HQ\n')

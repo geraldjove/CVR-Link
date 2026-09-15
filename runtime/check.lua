@@ -1,5 +1,5 @@
 -- Run with Lua 5.4. Tests the lease and restoration behavior without a game.
-local now, lease, begin_play, post_tick, travel = 100, 0
+local now, lease, begin_play, post_tick, travel, leave_game = 100, 0
 local unreadable, read_error = false, false
 local mouse_x, mouse_y = 0, 0
 local camera_rotation = {Pitch=10,Yaw=179,Roll=25}
@@ -11,11 +11,12 @@ local function copy(v)
 end
 local count = 0
 local function object(values)
-    values.IsValid = function() return true end
-    values.IsLocallyControlled = function() return true end
+    values.IsValid = function() return values.valid~=false end
+    values.IsLocallyControlled = function() return values.local_player~=false end
     values.IsA = function() return true end
     values.GetFName = function() return {ToString=function() return 'MockPawn' end} end
-    values.GetAddress = function() return 1 end
+    values.GetAddress = function() return values.address or 1 end
+    values.GetFullName = function() return 'MockGame '..(values.address or 1) end
     return values
 end
 local camera = object({bAutoSetLockToHmd=true,bLockToHmd=true,bUsePawnControlRotation=false,
@@ -28,16 +29,26 @@ local camera = object({bAutoSetLockToHmd=true,bLockToHmd=true,bUsePawnControlRot
     K2_GetComponentRotation=function() return camera_rotation end})
 local instance = object({PlayMode=0})
 local xr_enabled=true
+local returns,headset_free_start=0,false
+local online_member=false
 local hmd=object({IsHeadMountedDisplayEnabled=function() return xr_enabled end,
+    IsHeadMountedDisplayConnected=function() return not headset_free_start end,
     EnableHMD=function(_,value) xr_enabled=value; return true end})
 local pawn = object({PlayerCamera=camera,PlayMode=0,bVRMode=true})
 local pc = object({
     IsLocalController=function() return true end,
     GetInputAnalogKeyState=function(_,key) return key.KeyName=='MouseX' and mouse_x or mouse_y end,
     IsInputKeyDown=function() return false end,
-    SetControlRotation=function(_,rotation) controller_rotation=copy(rotation) end})
+    SetControlRotation=function(_,rotation) controller_rotation=copy(rotation) end,
+    ClientReturnToMainMenu=function() error('generic engine return leaves the Contractors lobby registered') end,
+    ClientLeaveGame=function()
+        assert(pawn.PlayMode==0,'unsupported match controls must be restored before disconnect')
+        returns=returns+1; leave_game()
+        online_member=false
+    end})
 StaticFindObject = function(path)
     if path:find('HeadMountedDisplay') then return hmd end
+    if path:find('KismetSystemLibrary') then return object({IsStandalone=function() return true end}) end
     return object({
     GetGameInstance=function() return instance end,GetGameState=function() return instance end,
     GetPlayerController=function() return pc end}) end
@@ -47,6 +58,7 @@ RegisterHook = function(path,callback,third)
     assert(not path:find('GameplayStatics:',1,true),'UE4SS 3.0.1 cannot hook static Blueprint libraries')
     if path:find('PlayerController:',1,true) then
         if path:find(':ClientTravelInternal',1,true) then travel=function() callback({get=function() return pc end}) end end
+        if path:find(':ClientLeaveGame',1,true) then leave_game=function() callback({get=function() return pc end}) end end
         assert(third==nil,'travel restoration must run before travel')
         return
     end
@@ -55,13 +67,15 @@ RegisterHook = function(path,callback,third)
     if path:find('CS_Character') then post_tick=callback end
 end
 local native_os, native_io = os, io
-package.loaded.Controls={start=function() end,stop=function() end,tick=function() end,status=function() return '' end,configure=function() end,
+local controls_pawn,controls_stops=nil,0
+package.loaded.Controls={start=function(p) controls_pawn=p end,stop=function() controls_stops=controls_stops+1; controls_pawn=nil end,
+    tick=function(p) assert(p==controls_pawn,'controls must use the active pawn') end,status=function() return '' end,configure=function() end,
     hud_state=function() return false,false end,
     wants_look=function() return pawn.InputMode~=1 end}
-local room_allowed=true
+local room_allowed,unsupported=true,false
 package.loaded.Menu={settings={mouse=2.5,aim=1,keys={RightMouseButton='RightMouseButton'}},
     hud=function() return nil end,
-    update=function(_,_,_,ready) return ready and room_allowed end,
+    update=function(_,_,_,ready) return ready and room_allowed,unsupported end,
     clear=function() room_allowed=false end,status=function() return '' end}
 os = {getenv=function() return 'mock' end, time=function() return now end, clock=function() return now end}
 io = {open=function(path, mode)
@@ -140,13 +154,42 @@ active_tick()
 lease=now+100
 tick()
 check(pawn.PlayMode==0, 'far-future value clears an already-active lease')
+active_tick()
+local old_pawn,old_camera,stops=pawn,camera,controls_stops
+camera=object(copy(camera))
+camera.bAutoSetLockToHmd,camera.bLockToHmd=true,true
+pawn=object({address=2,PlayerCamera=camera,PlayMode=0,bVRMode=true})
+active_tick()
+check(pawn.PlayMode==1 and not pawn.bVRMode and not camera.bLockToHmd and not xr_enabled,
+    'respawn reapplies flatscreen to the replacement pawn with the same match choice')
+check(old_pawn.PlayMode==0 and old_camera.bLockToHmd and controls_stops==stops+1 and controls_pawn==pawn,
+    'respawn releases old controls and camera before binding the new pawn')
+local remote=object({address=99,local_player=false})
+post_tick({get=function() return remote end})
+check(controls_pawn==pawn and pawn.PlayMode==1,'remote pawn ticks cannot replace local flatscreen controls')
+old_pawn,old_camera=pawn,camera
+old_pawn.valid,old_camera.valid=false,false
+camera=object(copy(camera)); camera.valid=true
+camera.bAutoSetLockToHmd,camera.bLockToHmd=true,true
+pawn=object({address=3,PlayerCamera=camera,PlayMode=0,bVRMode=true})
+active_tick()
+check(controls_pawn==pawn and pawn.PlayMode==1 and not xr_enabled,'respawn also recovers after the old pawn and camera are destroyed')
+lease=0; tick()
+check(pawn.PlayMode==0 and pawn.bVRMode and camera.bLockToHmd and xr_enabled and not controls_pawn,
+    'link off after repeated respawns restores the new pawn and original HMD mode')
 -- An incompatible property fails activation, restores partial changes, and stays off.
 active_tick()
-room_allowed=false
+room_allowed=false; unsupported=true
 active_tick()
-check(pawn.PlayMode==0 and xr_enabled,'a valid lease cannot keep flatscreen active outside the loadout')
-room_allowed=true
+check(pawn.PlayMode==0 and xr_enabled and returns==0,'normal VR start restores VR outside the loadout without leaving')
+room_allowed=true; unsupported=false
 active_tick()
+assert(leave_game,'Contractors leave-session RPC must be hooked before its body')
+leave_game()
+check(pawn.PlayMode==0 and xr_enabled and not controls_pawn,'Contractors leave-session route releases controls and restores VR before teardown')
+active_tick()
+check(pawn.PlayMode==0,'Contractors leave-session route clears the previous choice')
+room_allowed=true; active_tick()
 travel()
 check(pawn.PlayMode==0 and xr_enabled,'map travel restores VR before leaving the old world')
 active_tick()
@@ -160,5 +203,30 @@ camera.bAutoSetLockToHmd=true
 lease=now+3
 tick()
 check(pawn.PlayMode==0, 'error latches off until restart')
+-- A new headset-free process must enforce the gate even after settings change.
+headset_free_start=true; xr_enabled=false; room_allowed=true; unsupported=false
+dofile('main.lua'); begin_play({get=function() return pawn end})
+active_tick()
+check(pawn.PlayMode==1 and not xr_enabled,'headset-free process can activate without enabling XR')
+lease=0; tick()
+check(pawn.PlayMode==0 and not xr_enabled,'stopping headset-free mode keeps XR disabled')
+active_tick(); room_allowed=false
+for i=1,8 do active_tick() end
+check(pawn.PlayMode==0 and returns==0,'unknown replicated data keeps controls off without returning too soon')
+unsupported=true; active_tick(); active_tick(); active_tick()
+check(returns==0,'a known incompatible loadout gets a short replication grace period')
+room_allowed=true; unsupported=false; active_tick()
+check(pawn.PlayMode==1 and returns==0,'the real CVR plan arriving during grace cancels the return')
+room_allowed=false; unsupported=true; online_member=true
+for i=1,4 do active_tick() end
+check(returns==1 and pawn.PlayMode==0 and not xr_enabled,'a confirmed incompatible match uses Contractors Leave Match')
+check(not online_member,'unsupported-match rejection uses the stock online-session cleanup route')
+for i=1,8 do active_tick() end
+check(returns==1 and pawn.PlayMode==0,'late old-world ticks cannot repeat the return or re-enable controls')
+instance.address=2; room_allowed=true; unsupported=false; active_tick()
+check(pawn.PlayMode==1,'the new allowed world resumes headset-free controls')
+instance.address=3; room_allowed=false; unsupported=true; online_member=true
+for i=1,4 do active_tick() end
+check(returns==2 and not online_member,'a later incompatible match also uses full session cleanup once')
 os, io = native_os, native_io
 print(tostring(count) .. ' camera/lease/restoration checks passed')

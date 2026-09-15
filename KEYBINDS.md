@@ -20,12 +20,12 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | **4** | Equip the gadget in slot 2. |
 | **5** | Equip the gadget in slot 3. |
 | **V** | Equip your melee weapon, such as a knife. |
-| **Left click with a gun** | Fire. Hold for full-auto fire when that mode is selected. |
-| **Right mouse button, held** | Aim. Release to return to the normal view. |
+| **Left click with a gun** | Fire. Hold for full-auto fire when that mode is selected. Shots are blocked while sprinting; click again once sprint stops. There is no firing delay after sprint. |
+| **Right mouse button, held** | Aim. Stops sprint, waits 0.3 seconds, then eases into aim over 0.2 seconds. Release to return to the normal view. |
 | **F6** | Switch aiming between the gun's sights and camera zoom. |
 | **B** | Change the gun's fire mode, if it has more than one. |
 | **R** | Reload from one matching chest magazine after 1.5 seconds. Empty reserves block reload. |
-| **Left Shift, held** | Sprint while moving. |
+| **Left Shift + forward, held** | Sprint and lower the gun. Shift alone does not move you. Release Shift or forward to stop. The gun rises over 0.5 seconds; aim starts after 0.3 seconds and firing is available at once. |
 | **Left Ctrl or C, held** | Crouch. Starts must be half a second apart. Release starts standing up at once. A blocked tap is ignored; release both keys before trying again. |
 | **Left Ctrl or C while sprinting** | Start a slide when you are on the ground and moving fast enough. |
 | **Left click with a melee weapon** | Swing it. |
