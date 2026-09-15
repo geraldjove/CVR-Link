@@ -21,7 +21,6 @@ local function report(message)
     if file then file:write(tostring(os.time()), '|', message, '\n'); file:close() end
 end
 local function restore(reason)
-    menu.report_flatscreen(false)
     hud.stop()
     if not snapshot then return end
     local controls_ok, controls_error = pcall(controls.stop)
@@ -128,7 +127,7 @@ local function tick(context)
         else denied_world,denied_since=nil,nil end
         if returned_world then return end
         if snapshot then
-            controls.configure(menu.settings.keys)
+            controls.configure(menu.settings.keys,menu.settings.fov)
             local sensitivity=menu.settings.mouse
             if pc:IsInputKeyDown({KeyName=FName(menu.settings.keys.RightMouseButton)}) and pawn.InputMode==0 then
                 sensitivity=sensitivity*menu.settings.aim
@@ -144,7 +143,6 @@ local function tick(context)
             controls.tick(pawn,pc,camera,view,dx,dy)
             hud.update(menu.hud(),pawn,menu.settings,controls.hud_state())
         end
-        menu.report_flatscreen(snapshot~=nil)
         if last_report ~= os.time() then
             last_report = os.time()
             local rot = camera:K2_GetComponentRotation()

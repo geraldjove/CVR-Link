@@ -1,14 +1,19 @@
 # Future work
 
-## Quest welcome and flatscreen player list
+## Quest welcome
 
-- [ ] Test the 0.2.2 welcome, Continue in VR, and bottom-center menu
-  button on Quest. Check all links and Respawn/Change Loadout.
+- [x] Confirm the 0.2.2 welcome and new game-menu UI appear on Quest.
+  Gerald confirmed this after reinstalling the mod on 16 September 2026.
+- [ ] Test Continue in VR, reopening with the menu button, all links, and
+  Respawn/Change Loadout on the 0.2.2 Quest build.
 - [ ] Check that respawn and armor changes do not repeat the welcome, and a
   new match shows it again.
-- [ ] Test the shared flatscreen list in a mixed Windows/Quest match with the
-  new app and loadouts. Check VR/off, a lost link, timeout, death, leave/rejoin,
-  late join, and a dedicated server. Older apps do not report their mode.
+- The flatscreen player list was removed at Gerald's request on 16 September
+  2026. Check that only the CVRFlatscreen button remains after the next update.
+- [ ] Investigate the single-player-only report. Gerald sees the PC name in
+  the stock game display and cannot access online play. The exact connection
+  error and active online identity provider are still unknown; a name change
+  is not a verified fix.
 
 ## Standalone Quest mouse and keyboard
 

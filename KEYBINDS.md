@@ -20,7 +20,7 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | **4** | Equip the gadget in slot 2. |
 | **5** | Equip the gadget in slot 3. |
 | **V** | Equip your melee weapon, such as a knife. |
-| **Left click with a gun** | Fire. Hold for full-auto fire when that mode is selected. Shots are blocked while sprinting; click again once sprint stops. There is no firing delay after sprint. |
+| **Left click with a gun** | Fire. Bolt-action guns cycle automatically after a short pause; release and click for the next shot. Hold for full-auto fire when that mode is selected. Shots are blocked while sprinting; click again once sprint stops. There is no firing delay after sprint. |
 | **Right mouse button, held** | Aim. Stops sprint, waits 0.3 seconds, then eases into aim over 0.2 seconds. Release to return to the normal view. |
 | **F6** | Switch aiming between the gun's sights and camera zoom. |
 | **B** | Change the gun's fire mode, if it has more than one. |
@@ -57,6 +57,11 @@ magazine and replaces the rounds in the gun; any rounds left in the gun's old
 magazine are lost. A round already in the chamber stays. Empty chest magazines
 stay on the vest for the ammo station to refill. R does nothing when the gun
 is full or no matching chest magazine has rounds. Cancelled reloads spend none.
+
+Automatic bolt cycling waits 0.8 seconds after a fired case is found,
+then uses the game's bolt and chamber actions. It takes the next round from the
+gun, without spending a chest magazine. It stops pending work for a menu,
+reload, drop, switch, or flatscreen exit. R has no long-press action.
 
 The HUD's ammo display means **loaded rounds / spare chest rounds**. Loaded
 rounds include one in the chamber, so a full rifle may show 31. **CHEST MAGS**

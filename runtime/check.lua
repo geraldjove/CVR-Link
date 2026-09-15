@@ -73,10 +73,9 @@ package.loaded.Controls={start=function(p) if not controls_ready then return fal
     tick=function(p) assert(p==controls_pawn,'controls must use the active pawn') end,status=function() return '' end,configure=function() end,
     hud_state=function() return false,false end,
     wants_look=function() return pawn.InputMode~=1 end}
-local room_allowed,unsupported,announced=true,false,false
+local room_allowed,unsupported=true,false
 package.loaded.Menu={settings={mouse=2.5,aim=1,keys={RightMouseButton='RightMouseButton'}},
     hud=function() return nil end,
-    report_flatscreen=function(active) announced=active end,
     update=function(_,_,_,ready) return ready and room_allowed,unsupported end,
     clear=function() room_allowed=false end,status=function() return '' end}
 os = {getenv=function() return 'mock' end, time=function() return now end, clock=function() return now end}
@@ -99,13 +98,11 @@ for _=1,3 do lease=now+3; tick() end
 check(pawn.PlayMode==0 and instance.PlayMode==0 and pawn.bVRMode and xr_enabled and camera.bLockToHmd and not controls_pawn,
     'late local player setup waits without changing camera, mode, XR, or controls')
 check(written_status:find('|WAITING|',1,true),'missing pointer reports waiting instead of a latched error')
-check(not announced,'waiting for controls does not announce a flatscreen player')
 lease=0; tick(); controls_ready=true; tick()
 check(pawn.PlayMode==0 and not controls_pawn,'a pointer arriving after helper off cannot activate flatscreen')
 lease=now+3
 tick()
 check(pawn.PlayMode==1 and instance.PlayMode==1, 'valid lease activates native pancake mode')
-check(announced,'active controls announce a flatscreen player')
 check(not camera.bLockToHmd and not camera.bAutoSetLockToHmd, 'active camera ignores HMD')
 check(not camera.bUsePawnControlRotation, 'camera excludes headset-derived controller rotation')
 check(not xr_enabled, 'activation disables native HMD/stereo rendering')

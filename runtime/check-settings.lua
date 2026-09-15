@@ -24,6 +24,16 @@ end
 check(S.defaults().keys.E=='E','defaults do not share key tables')
 local old=assert(S.parse('mouse=0.8\naim=1\n'))
 check(old.mouse==.8 and old.ui_scale==1 and old.ui_opacity==1,'old files retain mouse speed and get default HUD settings')
+check(old.fov==80 and S.defaults().fov==80,'old files and defaults use 80 degree FOV')
+for _,fov in ipairs({80,100,120}) do
+    local v=S.defaults(); v.fov=fov
+    check(assert(S.parse(assert(S.encode(v)))).fov==fov,'FOV range round trips: '..fov)
+end
+for _,bad in ipairs({79,121,math.huge,0/0,'90'}) do
+    local v=S.defaults(); v.fov=bad
+    check(not S.validate(v),'invalid FOV rejected')
+end
+check(not S.parse('fov=nope') and not S.parse('fov=80\nfov=100'),'invalid and repeated FOV text rejected')
 local ui=S.defaults(); ui.ui_scale=.75; ui.ui_opacity=.6
 local saved=assert(S.parse(assert(S.encode(ui))))
 check(saved.ui_scale==.75 and saved.ui_opacity==.6,'HUD size and opacity round trip')

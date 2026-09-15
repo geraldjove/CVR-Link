@@ -35,25 +35,24 @@ You should see the screen's edges. Use **Play in VR** to return to headset play.
 Open the mode popup at any time with **F8**, or the **CVRFlatscreen** button in
 the game menu. VR players can find the app download and Discord links there.
 
-**Loadout release:** 0.2.2 test update for Windows, server, and Quest on
+**Loadout release:** 0.2.3 test update for Windows, server, and Quest on
 [CVRFlatscreen on mod.io](https://mod.io/g/contractors/m/cvrflatscreen).
 Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's new in 0.2.2
+### What's new in 0.2.3
 
-- **Quest welcome:** explains that flatscreen needs the Windows PCVR game and
-  CVR Link. Choose **Continue in VR** to close it.
-- **Menu button:** the bottom-center **CVRFlatscreen** button reopens the popup
-  with the mod download, CVR Link, Discord, and author details.
-- **Flatscreen players:** the game menu on Windows and Quest lists players
-  whose updated app reports active flatscreen controls. Older apps do not
-  report their mode. Switching to VR clears the entry; a lost update clears
-  it within four seconds.
+- **FOV:** choose 80 to 120 degrees in UI Settings. The default is 80.
+  Click Save settings to change it while playing.
+- **Automatic bolts:** bolt-action guns cycle after a shot. Release fire and
+  click again for the next shot. R still reloads.
+- **Simpler menu:** the flatscreen player list is removed on Windows and
+  Quest. The CVRFlatscreen button and popup still show downloads and help.
 
-This is a test update. The new Quest popup and shared player list still need
-device and multiplayer tests. It keeps the earlier startup and death-menu fixes.
+FOV and bolt cycling are confirmed in play. More guns and maps need tests.
+The Quest welcome stays in place. A multiplayer lock has been reported with
+Experimental start and is still being checked.
 
 Windows players should update both CVR Link and the in-game loadout. Close the
 game and app, open the new EXE, and click Install. Use the updated desktop
@@ -84,7 +83,7 @@ PC/Quest matches still need tests. Custom maps must support Quest too.
 - **Keybinds:** click an action, then press its new key or mouse button.
 - **Mouse sensitivity:** change normal mouse speed.
 - **Aim sensitivity:** change mouse speed while aiming.
-- **UI Settings:** set HUD size from 50% to 150% and transparency from 0% to 90%.
+- **UI Settings:** set FOV from 80 to 120, HUD size from 50% to 150%, and transparency from 0% to 90%.
 - **Save settings:** apply your changes in the running game.
 
 The app shows **Settings applied in game** when the game reads your changes.
@@ -101,6 +100,8 @@ Hold **Shift + forward** to sprint and lower the gun. Release either key to
 stop. Shift alone leaves you still. The gun rises over 0.5 seconds; aim and zoom
 can start after 0.3 seconds. Firing is available as soon as sprint stops. Shots
 pressed during sprint are not queued; click again afterward.
+
+Bolt-action guns cycle after a short pause. They use real magazine rounds.
 
 Reloads lower the gun for 1.5 seconds and use one matching chest magazine. When
 your spare rounds run out, use an ammo station. Gear moves down and up when you
@@ -153,7 +154,7 @@ Its MIT notice is in [UE4SS-LICENSE.txt](release/UE4SS-LICENSE.txt).
 No game files are included in this repo.
 
 For source checks and building the EXE, see [BUILD.md](BUILD.md).
-Read [0.2.2 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
+Read [0.2.3 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
 
 Last verified: **2026-09-16**. Sources: source checks, native desktop and editor
 checks, mod.io download checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)

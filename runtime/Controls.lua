@@ -4,8 +4,8 @@ local inventory=require('Inventory')
 local actions=require('ItemActions')
 local placement=require('Placement')
 local ammo=require('Ammo')
-local bindings={}
-function M.configure(values) bindings=values or {} end
+local bindings,field_of_view={},80
+function M.configure(values,fov) bindings=values or {}; field_of_view=fov or 80 end
 local function down_key(pc,name) return pc:IsInputKeyDown({KeyName=FName(bindings[name] or name)}) end
 local function valid(o) return o and o:IsValid() end
 local function copy(v, fields)
@@ -76,6 +76,26 @@ local function release_support()
 end
 local function cancel_reload()
     state.reload_deadline,state.reload_gun,state.reload_plan=nil,nil,nil
+end
+local function cycle_bolt(gun,blocked)
+    if blocked or not same(state.bolt_gun,gun) then state.bolt_deadline=nil end
+    state.bolt_gun=gun
+    if blocked or not valid(gun) or not gun.GunData.bBoltAction
+        or not valid(gun.GunBoltComponent) or gun:HasBulletInChamber() or not gun:HaseUsedBulletInChamber() then
+        state.bolt_deadline=nil
+        return
+    end
+    -- The stock bolt-action handle ejects the spent case and chambers one round.
+    -- Keep a short manual-action pause, then use those same ammo/bolt APIs.
+    release_fire()
+    state.bolt_deadline=state.bolt_deadline or os.clock()+.8
+    if os.clock()>=state.bolt_deadline and gun.GunBoltComponent:GetBoltState()==0 then
+        gun:EjectChamberBullet()
+        gun:MoveBulletToChamber()
+        gun.GunBoltComponent:BoltTravelFullRound(0)
+        state.bolt_deadline=nil
+        state.bolts_cycled=(state.bolts_cycled or 0)+1
+    end
 end
 local function complete_reload(gun)
     local completed,message=ammo.complete(state.reload_plan)
@@ -354,6 +374,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
             state.reload_plan,state.reload_gun,state.reload_deadline=plan,gun,os.clock()+1.5
         end
     end
+    cycle_bolt(gun,menu or state.reload_deadline~=nil or state.inventory.pending~=nil)
     if not same(state.aim_weapon,gun) then
         state.aim_weapon,state.ads_amount,state.ads_goal,state.sight=gun,0,nil,nil
     end
@@ -373,7 +394,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     end
     local progress=math.min(1,math.max(0,(os.clock()-state.ads_started)/.2))
     state.ads_amount=state.ads_from+(goal-state.ads_from)*progress*progress*(3-2*progress)
-    camera:SetFieldOfView(state.fov*(1-(state.zoom_mode and .35*state.ads_amount or 0)))
+    camera:SetFieldOfView(field_of_view*(1-(state.zoom_mode and .35*state.ads_amount or 0)))
     placement.update()
     local output={Rotation={},Translation={},Scale3D={}}
     state.aim_point=nil
@@ -543,6 +564,8 @@ function M.status()
         ..'|inventory='..state.inventory.message
         ..'|interaction='..tostring(state.inventory.interaction or 'ready')
         ..'|reload_pending='..tostring(state.reload_deadline~=nil)
+        ..'|bolt_pending='..tostring(state.bolt_deadline~=nil)
+        ..'|bolts_cycled='..tostring(state.bolts_cycled or 0)
         ..'|reload_result='..tostring(state.reload_result or 'ready')
         ..'|reloads_completed='..tostring(state.reloads_completed or 0)
         ..'|reload_last_seconds='..tostring(state.reload_last_seconds or 0)

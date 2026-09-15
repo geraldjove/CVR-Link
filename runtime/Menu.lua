@@ -9,21 +9,6 @@ local last_load=-1
 local exit_hooks={}
 local function valid(o) return o and o:IsValid() end
 local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetAddress() end
-local announced_holder,last_announce
-function M.report_flatscreen(active)
-    local holder=active and state.choice==1 and not state.home and state.holder or nil
-    if announced_holder and not same(announced_holder,holder) then
-        if valid(announced_holder) then pcall(function() announced_holder:ServerFlatscreenStopped() end) end
-        announced_holder,last_announce=nil,nil
-    end
-    if valid(holder) and (not same(announced_holder,holder) or last_announce~=os.time()) then
-        -- Older loadout packages have no announcement RPC. A missing or busy
-        -- network endpoint must never stop the player's controls.
-        local ok=pcall(function() holder:ServerFlatscreenHeartbeat() end)
-        announced_holder,last_announce=holder,os.time()
-        return ok
-    end
-end
 local function text(widget,name,value) widget[name]:SetText(FText(value)) end
 local function close(pawn)
     if valid(state.widget) then state.widget.PopupOpen=false; state.widget:SetVisibility(1) end
@@ -35,7 +20,6 @@ local function close(pawn)
     state.opened=false
 end
 function M.clear(pawn,travel)
-    M.report_flatscreen(false)
     close(pawn)
     if travel then state.departing=state.world_name or state.departing end
     R.reset(state)

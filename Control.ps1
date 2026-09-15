@@ -38,11 +38,12 @@ function Start-Contractors([bool]$HeadsetFree){
   Start-Process -FilePath $steamExe -ArgumentList '-applaunch 963930 -nohmd -windowed' -WindowStyle Hidden
  }else{Start-Process -FilePath 'steam://rungameid/963930'}
 }
-function Encode-Settings([decimal]$Mouse,[decimal]$Aim,$Keys,[decimal]$Scale=1,[decimal]$Opacity=1,[bool]$ExperimentalStart=$false){
+function Encode-Settings([decimal]$Mouse,[decimal]$Aim,$Keys,[decimal]$Scale=1,[decimal]$Opacity=1,[bool]$ExperimentalStart=$false,[decimal]$Fov=80){
  if($Mouse -lt .1 -or $Mouse -gt 10 -or $Aim -lt .1 -or $Aim -gt 10){throw 'Mouse and aim speeds must be from 0.1 to 10.'}
  if($Scale -lt .5 -or $Scale -gt 1.5 -or $Opacity -lt .1 -or $Opacity -gt 1){throw 'HUD size must be 50% to 150%, and transparency 0% to 90%.'}
+ if($Fov -lt 80 -or $Fov -gt 120){throw 'Field of view must be from 80 to 120 degrees.'}
  $used=@{}
- $lines=@(('mouse='+$Mouse.ToString('0.##',$invariant)),('aim='+$Aim.ToString('0.##',$invariant)),('ui_scale='+$Scale.ToString('0.##',$invariant)),('ui_opacity='+$Opacity.ToString('0.##',$invariant)),('experimental_start='+[int]$ExperimentalStart))
+ $lines=@(('mouse='+$Mouse.ToString('0.##',$invariant)),('aim='+$Aim.ToString('0.##',$invariant)),('fov='+$Fov.ToString('0.##',$invariant)),('ui_scale='+$Scale.ToString('0.##',$invariant)),('ui_opacity='+$Opacity.ToString('0.##',$invariant)),('experimental_start='+[int]$ExperimentalStart))
  foreach($action in $actions.Keys){
   $key=[string]$Keys[$action]
   if($key -cnotin @($keyCodes.Keys)){throw 'Choose a keyboard or mouse key. F7, F8 and Escape stay fixed.'}
@@ -54,19 +55,20 @@ function Encode-Settings([decimal]$Mouse,[decimal]$Aim,$Keys,[decimal]$Scale=1,[
 function Read-Settings([string]$Text){
  if($Text.Length -gt 8192){throw 'Settings file is too large.'}
  $keys=[ordered]@{};foreach($key in $actions.Keys){$keys[$key]=$key}
- $mouse=[decimal]2.5;$aim=[decimal]1;$scale=[decimal]1;$opacity=[decimal]1;$experimentalStart=$false;$seen=@{}
+ $mouse=[decimal]2.5;$aim=[decimal]1;$fov=[decimal]80;$scale=[decimal]1;$opacity=[decimal]1;$experimentalStart=$false;$seen=@{}
  foreach($line in ($Text -split '\r?\n' | Where-Object {$_ -ne ''})){
   if($line -cnotmatch '^([\w_]+)=([\w_.]+)$' -or $seen.ContainsKey($Matches[1])){throw 'Settings file has a bad or repeated entry.'}
   $name=$Matches[1];$value=$Matches[2];$seen[$name]=$true
   if($name -ceq 'mouse'){$mouse=[decimal]::Parse($value,$invariant)}
   elseif($name -ceq 'aim'){$aim=[decimal]::Parse($value,$invariant)}
+  elseif($name -ceq 'fov'){$fov=[decimal]::Parse($value,$invariant)}
   elseif($name -ceq 'ui_scale'){$scale=[decimal]::Parse($value,$invariant)}
   elseif($name -ceq 'ui_opacity'){$opacity=[decimal]::Parse($value,$invariant)}
   elseif($name -ceq 'experimental_start'){if($value -cnotin @('0','1')){throw 'Experimental start must be 0 or 1.'};$experimentalStart=$value -ceq '1'}
   elseif($name -cin @($keys.Keys)){$keys[$name]=$value}else{throw 'Settings file has an unknown entry.'}
  }
- $null=Encode-Settings $mouse $aim $keys $scale $opacity $experimentalStart
- return @{Mouse=$mouse;Aim=$aim;Keys=$keys;Scale=$scale;Opacity=$opacity;ExperimentalStart=$experimentalStart}
+ $null=Encode-Settings $mouse $aim $keys $scale $opacity $experimentalStart $fov
+ return @{Mouse=$mouse;Aim=$aim;Fov=$fov;Keys=$keys;Scale=$scale;Opacity=$opacity;ExperimentalStart=$experimentalStart}
 }
 function Write-Atomic([string]$Path,[string]$Text){
  $temp=$Path+'.tmp';[IO.File]::WriteAllText($temp,$Text,[Text.UTF8Encoding]::new($false))
@@ -119,8 +121,12 @@ foreach($entry in @(@('Scale','HUD size (%)',50,150,100),@('Transparency','HUD t
  $input=[Windows.Forms.NumericUpDown]::new();$input.Minimum=$entry[2];$input.Maximum=$entry[3];$input.Value=$entry[4];$input.Increment=5;$input.Dock='Fill';$input.AccessibleName=$entry[1]
  $row=$uiInputs.Count;$uiRows.Controls.Add($label,0,$row);$uiRows.Controls.Add($input,1,$row);$uiInputs[$entry[0]]=$input
 }
-$uiHint=[Windows.Forms.Label]::new();$uiHint.Text="Change the size and see-through look of your HUD.`n0% transparency is solid. 90% is almost clear.`nClick Save settings to apply changes in the game.";$uiHint.AutoSize=$true;$uiHint.MaximumSize=[Drawing.Size]::new(490,0);$uiHint.Margin=[Windows.Forms.Padding]::new(0,20,0,0)
-$uiRows.Controls.Add($uiHint,0,2);$uiRows.SetColumnSpan($uiHint,2);$uiTab.Controls.Add($uiRows)
+$fovLabel=[Windows.Forms.Label]::new();$fovLabel.Text='Field of view: 80 degrees';$fovLabel.AutoSize=$true;$fovLabel.Anchor='Left'
+$fovInput=[Windows.Forms.TrackBar]::new();$fovInput.Minimum=80;$fovInput.Maximum=120;$fovInput.Value=80;$fovInput.TickFrequency=10;$fovInput.SmallChange=1;$fovInput.LargeChange=5;$fovInput.Dock='Fill';$fovInput.AccessibleName='Field of view (80 to 120 degrees)'
+$fovInput.Add_ValueChanged({$fovLabel.Text='Field of view: '+$fovInput.Value+' degrees'})
+$uiRows.Controls.Add($fovLabel,0,2);$uiRows.Controls.Add($fovInput,1,2)
+$uiHint=[Windows.Forms.Label]::new();$uiHint.Text="Set your HUD and flatscreen view.`nFOV starts at 80 degrees. Higher values show more around you.`n0% transparency is solid. 90% is almost clear.`nClick Save settings to apply changes in the game.";$uiHint.AutoSize=$true;$uiHint.MaximumSize=[Drawing.Size]::new(490,0);$uiHint.Margin=[Windows.Forms.Padding]::new(0,20,0,0)
+$uiRows.Controls.Add($uiHint,0,3);$uiRows.SetColumnSpan($uiHint,2);$uiTab.Controls.Add($uiRows)
 $experimentalRows=[Windows.Forms.FlowLayoutPanel]::new();$experimentalRows.Dock='Fill';$experimentalRows.FlowDirection='TopDown';$experimentalRows.WrapContents=$false;$experimentalRows.AutoScroll=$true;$experimentalRows.Padding=[Windows.Forms.Padding]::new(18)
 $experimental=[Windows.Forms.CheckBox]::new();$experimental.Text='Start in Flatscreen (experimental)';$experimental.AutoSize=$true;$experimental.AccessibleName='Start in Flatscreen (experimental)'
 $experimentalHint=[Windows.Forms.Label]::new();$experimentalHint.Text="Start Contractors with a mouse and keyboard. No headset is needed when you use the start button below.`n`nPlay from the local HQ and join matches using the exact CVRFlatscreen loadout, on any map. Other matches return you to HQ.`n`nKeep CVR Link open and enabled. Close the game before starting this mode. To play in VR, close the game, turn this option off, and start again.`n`nSave settings alone cannot change how a running game was started.";$experimentalHint.AutoSize=$true;$experimentalHint.MaximumSize=[Drawing.Size]::new(470,0);$experimentalHint.Margin=[Windows.Forms.Padding]::new(0,16,0,16)
@@ -144,16 +150,17 @@ foreach($entry in @(@('Discord updates','https://discord.gg/432n3NTq9f'),@('Down
 }
 $layout.Controls.Add($community,0,5)
 function Refresh-Keys {foreach($key in $actions.Keys){$keyButtons[$key].Text=Format-Key $bindings[$key]}}
-function Save-Settings {$text=Encode-Settings $speeds.Mouse.Value $speeds.Aim.Value $bindings ($uiInputs.Scale.Value/100) (1-$uiInputs.Transparency.Value/100) $experimental.Checked;Write-Atomic $settingsPath $text;$script:savedText=$text;$message.Text='Saved. Waiting for the game to apply your settings.'}
+function Save-Settings {$text=Encode-Settings $speeds.Mouse.Value $speeds.Aim.Value $bindings ($uiInputs.Scale.Value/100) (1-$uiInputs.Transparency.Value/100) $experimental.Checked $fovInput.Value;Write-Atomic $settingsPath $text;$script:savedText=$text;$message.Text='Saved. Waiting for the game to apply your settings.'}
 $save.Add_Click({try{Save-Settings}catch{$message.Text=$_.Exception.Message}})
-$reset.Add_Click({$speeds.Mouse.Value=2.5;$speeds.Aim.Value=1;$uiInputs.Scale.Value=100;$uiInputs.Transparency.Value=0;$experimental.Checked=$false;foreach($key in $actions.Keys){$bindings[$key]=$key};$script:capture=$null;Refresh-Keys;$message.Text='Defaults are ready. Click Save settings to apply them.'})
-if(Test-Path -LiteralPath $settingsPath){try{$loaded=Read-Settings ([IO.File]::ReadAllText($settingsPath));$speeds.Mouse.Value=$loaded.Mouse;$speeds.Aim.Value=$loaded.Aim;$uiInputs.Scale.Value=$loaded.Scale*100;$uiInputs.Transparency.Value=(1-$loaded.Opacity)*100;$experimental.Checked=$loaded.ExperimentalStart;foreach($key in $actions.Keys){$bindings[$key]=$loaded.Keys[$key]};Refresh-Keys}catch{$message.Text='Could not read saved settings. Defaults are shown. '+$_.Exception.Message}}
+$reset.Add_Click({$speeds.Mouse.Value=2.5;$speeds.Aim.Value=1;$uiInputs.Scale.Value=100;$uiInputs.Transparency.Value=0;$fovInput.Value=80;$experimental.Checked=$false;foreach($key in $actions.Keys){$bindings[$key]=$key};$script:capture=$null;Refresh-Keys;$message.Text='Defaults are ready. Click Save settings to apply them.'})
+if(Test-Path -LiteralPath $settingsPath){try{$loaded=Read-Settings ([IO.File]::ReadAllText($settingsPath));$speeds.Mouse.Value=$loaded.Mouse;$speeds.Aim.Value=$loaded.Aim;$fovInput.Value=$loaded.Fov;$uiInputs.Scale.Value=$loaded.Scale*100;$uiInputs.Transparency.Value=(1-$loaded.Opacity)*100;$experimental.Checked=$loaded.ExperimentalStart;foreach($key in $actions.Keys){$bindings[$key]=$loaded.Keys[$key]};Refresh-Keys}catch{$message.Text='Could not read saved settings. Defaults are shown. '+$_.Exception.Message}}
 if($Check){
- $text=Encode-Settings 2.5 1 $bindings .8 .65 $true;$parsed=Read-Settings $text
- if($tabs.TabPages.Count -ne 3 -or $parsed.Scale -ne .8 -or $parsed.Opacity -ne .65 -or -not $parsed.ExperimentalStart){throw 'Tabs or settings did not round trip'}
+ $text=Encode-Settings 2.5 1 $bindings .8 .65 $true 120;$parsed=Read-Settings $text
+ if($tabs.TabPages.Count -ne 3 -or $parsed.Scale -ne .8 -or $parsed.Opacity -ne .65 -or -not $parsed.ExperimentalStart -or $parsed.Fov -ne 120){throw 'Tabs or settings did not round trip'}
+ foreach($badFov in @('79','121','nope','NaN')){$rejected=$false;try{$null=Read-Settings ('fov='+$badFov)}catch{$rejected=$true};if(-not $rejected){throw 'Invalid FOV accepted'}}
  foreach($bad in @('true','false','2','-1','0.5','01')){$rejected=$false;try{$null=Read-Settings ('experimental_start='+$bad)}catch{$rejected=$true};if(-not $rejected){throw 'Invalid Experimental setting accepted'}}
  foreach($badUi in @(@(.49,1),@(1.51,1),@(1,.09),@(1,1.01))){$rejected=$false;try{$null=Encode-Settings 2.5 1 $bindings $badUi[0] $badUi[1]}catch{$rejected=$true};if(-not $rejected){throw 'Invalid HUD settings accepted'}}
- $old=Read-Settings "mouse=0.8`naim=1`n";if($old.Scale -ne 1 -or $old.Opacity -ne 1 -or $old.Mouse -ne .8 -or $old.ExperimentalStart){throw 'Old settings did not retain defaults'}
+ $old=Read-Settings "mouse=0.8`naim=1`n";if($old.Scale -ne 1 -or $old.Opacity -ne 1 -or $old.Mouse -ne .8 -or $old.ExperimentalStart -or $old.Fov -ne 80){throw 'Old settings did not retain defaults'}
  if($keyButtons.Count -ne 24 -or $parsed.Keys.Count -ne 24){throw 'Missing control'}
  $bad=[ordered]@{};foreach($key in $actions.Keys){$bad[$key]=$key};$bad.E='G';$rejected=$false
  try{$null=Encode-Settings 2.5 1 $bad}catch{$rejected=$true};if(-not $rejected){throw 'Duplicate keys accepted'}

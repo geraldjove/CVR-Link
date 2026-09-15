@@ -73,7 +73,7 @@ pawn.CrouchCurve=object({
     ReverseFromEnd=function() crouch_position=.4; error('stand must reverse from its current height') end})
 pawn.Mesh=object({bVisible=true,SetVisibility=function(self,value,propagate) assert(not propagate); self.bVisible=value end})
 local function gun(owner,x)
-    local result=object({PrimGripComponent=object({}),GetOwner=function() return owner end,
+    local result=object({PrimGripComponent=object({}),GunData={bBoltAction=false},GetOwner=function() return owner end,
         GetCurrentClip=function(self) return self.clip end,
         GetInstigator=function() return nil end,K2_GetActorLocation=function() return {X=x,Y=0,Z=170} end,
         GetActorAttachingTo=function() return nil end,
@@ -212,14 +212,21 @@ check(controls.apply_gun_pose(rifle,output) and output.Translation.X==14 and out
 input()
 check(rifle.ads==false,'right mouse release clears ADS')
 input({F6=true}); input(); input({RightMouseButton=true})
-check(camera.FieldOfView==90,'zoom starts at the normal FOV')
-now=now+.1; tick(); check(camera.FieldOfView>58.5 and camera.FieldOfView<90,'zoom transitions through an intermediate FOV')
+check(camera.FieldOfView==80,'zoom starts at the configured default FOV')
+now=now+.1; tick(); check(camera.FieldOfView>52 and camera.FieldOfView<80,'zoom transitions through an intermediate FOV')
 now=now+.101; tick()
-check(camera.FieldOfView==58.5 and not rifle.ads,'zoom fallback changes camera FOV without native sight aiming')
+check(camera.FieldOfView==52 and not rifle.ads,'zoom fallback changes camera FOV without native sight aiming')
 controls.apply_gun_pose(rifle,output)
 check(output.Translation.X==23 and output.Translation.Y==16,'zoom fallback retains the hip weapon anchor')
 input(); input({F6=true}); input()
-check(camera.FieldOfView==90,'releasing zoom restores the original FOV')
+check(camera.FieldOfView==80,'releasing zoom restores the configured FOV')
+controls.configure(nil,120); tick()
+check(camera.FieldOfView==120,'saved FOV applies without restarting controls')
+input({F6=true}); input(); input({RightMouseButton=true}); now=now+.201; tick()
+check(camera.FieldOfView==78,'zoom uses the selected 120 degree baseline')
+input(); now=now+.201; tick()
+check(camera.FieldOfView==120,'leaving zoom returns to the selected FOV')
+input({F6=true}); input(); controls.configure(); tick()
 local original=transform({X=1000,Y=400,Z=200})
 local kicked=transform({X=998,Y=400,Z=200})
 kicked.Rotation={X=0,Y=-math.sin(math.rad(3)),Z=0,W=math.cos(math.rad(3))}
@@ -304,7 +311,7 @@ check(math.abs(output.Translation.Z-156)<.00001 and math.abs(output.Rotation.Y)<
     'sprint recovery restores the default hip position and angle')
 input({W=true,LeftShift=true}); now=13.2; tick(); input({F6=true,RightMouseButton=true})
 now=13.499; tick()
-check(camera.FieldOfView==90 and not rifle.ads,'F6 zoom also waits for sprint recovery')
+check(camera.FieldOfView==80 and not rifle.ads,'F6 zoom also waits for sprint recovery')
 input(); input({F6=true}); now=14; input()
 pawn.CharacterMovement.Velocity.X=0
 input({W=true,S=true,LeftShift=true})
@@ -485,5 +492,46 @@ check(movement_y==0,'settings and game menus stop keyboard movement')
 pawn.InputMode=0; input({Up=true}); controls.stop()
 check(movement_x==0 and movement_y==0,'disable releases movement after rebinding')
 controls.configure()
+-- A spent case, not an empty trigger pull, starts the automatic bolt cycle.
+local cycles,ejected,chambered=0,0,0
+rifle.GunData.bBoltAction=true
+rifle.used,rifle.chamber,rifle.rounds=true,false,3
+rifle.HasBulletInChamber=function(self) return self.chamber end
+rifle.HaseUsedBulletInChamber=function(self) return self.used end
+rifle.EjectChamberBullet=function(self) ejected=ejected+1; self.used=false; self.chamber=false end
+rifle.MoveBulletToChamber=function(self)
+    chambered=chambered+1
+    if self.rounds==0 then return false end
+    self.rounds=self.rounds-1; self.chamber=true; return true
+end
+rifle.GunBoltComponent=object({GetBoltState=function() return 0 end,
+    BoltTravelFullRound=function(_,remaining) assert(remaining==0); cycles=cycles+1 end})
+held=rifle; pawn.InputMode=0; controls.start(pawn); input()
+now=now+.799; tick()
+check(cycles==0 and not rifle.chamber,'spent bolt-action round waits before cycling')
+now=now+.002; tick()
+check(cycles==1 and rifle.chamber and not rifle.used and rifle.rounds==2,'automatic bolt chambers exactly one existing round')
+now=now+2; tick()
+check(cycles==1 and ejected==1 and chambered==1,'loaded bolt-action rifle is not cycled repeatedly')
+rifle.chamber=false; rifle.used=false; tick(); now=now+2; tick()
+check(cycles==1,'empty chamber without a fired case does not auto-cycle')
+rifle.used=true; rifle.GunData.bBoltAction=false; tick(); now=now+2; tick()
+check(cycles==1,'semi-auto and automatic guns keep their own cycling')
+rifle.GunData.bBoltAction=true; input({LeftMouseButton=true})
+check(trigger==0,'automatic cycling releases the held trigger')
+input({Tab=true}); now=now+2; tick()
+check(cycles==1,'game menu cancels pending bolt work')
+input(); input({Tab=true}); input(); now=now+.4; tick(); held=own; tick(); now=now+1; tick()
+check(cycles==1,'weapon change cancels pending bolt work on the old gun')
+held=rifle; input(); input({R=true}); now=now+.9; tick()
+check(cycles==1,'reload takes priority over automatic cycling')
+input({G=true}); now=now+2; tick()
+check(cycles==1,'dropping a rifle cancels both pending reload and bolt work')
+held=rifle; rifle.rounds=0; input(); now=now+.801; tick()
+check(cycles==2 and not rifle.chamber and not rifle.used and rifle.rounds==0,'last shot ejects its case without creating ammo')
+now=now+2; tick()
+check(cycles==2,'empty rifle does not repeatedly run the bolt')
+rifle.used=true; input(); controls.stop(); now=now+2; tick()
+check(cycles==2,'stopping flatscreen cancels pending bolt work')
 print(count..' keyboard interaction checks passed; slide physics and sight alignment require live verification')
 os.clock=real_clock
