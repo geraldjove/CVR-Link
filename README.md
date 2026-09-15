@@ -35,19 +35,25 @@ You should see the screen's edges. Use **Play in VR** to return to headset play.
 Open the mode popup at any time with **F8**, or the **CVRFlatscreen** button in
 the game menu. VR players can find the app download and Discord links there.
 
-**Loadout release status:** 0.2.1 Windows, server, and Quest files are uploaded to
+**Loadout release:** 0.2.2 test update for Windows, server, and Quest on
 [CVRFlatscreen on mod.io](https://mod.io/g/contractors/m/cvrflatscreen).
 Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's fixed in 0.2.1
+### What's new in 0.2.2
 
-- **Windows:** fixed an error that could stop flatscreen when entering a match.
-  The app now waits for your player to finish loading, then starts on its own.
-  This fix was tested with Experimental start and bots in Nuketown.
-- **Quest:** fixed the laser passing through the death menu. Respawn and Change
-  Loadout now work in the reported test.
+- **Quest welcome:** explains that flatscreen needs the Windows PCVR game and
+  CVR Link. Choose **Continue in VR** to close it.
+- **Menu button:** the bottom-center **CVRFlatscreen** button reopens the popup
+  with the mod download, CVR Link, Discord, and author details.
+- **Flatscreen players:** the game menu on Windows and Quest lists players
+  whose updated app reports active flatscreen controls. Older apps do not
+  report their mode. Switching to VR clears the entry; a lost update clears
+  it within four seconds.
+
+This is a test update. The new Quest popup and shared player list still need
+device and multiplayer tests. It keeps the earlier startup and death-menu fixes.
 
 Windows players should update both CVR Link and the in-game loadout. Close the
 game and app, open the new EXE, and click Install. Use the updated desktop
@@ -67,11 +73,11 @@ how a running game was started.
 
 ### Quest crossplay preview
 
-The 0.2.1 loadout includes a Quest package for VR controller play.
-Quest players do not need CVR Link and skip the desktop mode menu. The Windows
-app and mouse-and-keyboard controls remain Windows-only. The Quest death-menu
-fix is confirmed in play. More maps, armor choices, and mixed PC/Quest matches
-still need tests. Custom maps must support Quest too.
+Update the loadout in Contractors and restart the game. Quest players keep
+their normal VR controllers and do not need CVR Link. The welcome opens once
+per match; the game-menu button opens it again. Flatscreen play needs the
+Windows PCVR game and CVR Link on a PC. More maps, armor choices, and mixed
+PC/Quest matches still need tests. Custom maps must support Quest too.
 
 ## Change your settings
 
@@ -147,8 +153,8 @@ Its MIT notice is in [UE4SS-LICENSE.txt](release/UE4SS-LICENSE.txt).
 No game files are included in this repo.
 
 For source checks and building the EXE, see [BUILD.md](BUILD.md).
-Read [0.2.1 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
+Read [0.2.2 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
 
-Last verified: **2026-09-15**. Sources: source checks, native desktop and editor
+Last verified: **2026-09-16**. Sources: source checks, native desktop and editor
 checks, mod.io download checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)
 for what was checked and what still needs a live test.

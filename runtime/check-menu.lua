@@ -204,5 +204,26 @@ check(not enabled and unsupported,'menu forwards a confirmed incompatible loadou
 plan.valid=false
 enabled,unsupported=tick()
 check(not enabled and not unsupported,'menu keeps unknown loadouts locked while replication finishes')
+-- The announcement follows actual controls and the exact match choice. It
+-- expires on the server if this client stops sending its one-second heartbeat.
+local heartbeats,stops=0,0
+holder.ServerFlatscreenHeartbeat=function() heartbeats=heartbeats+1 end
+holder.ServerFlatscreenStopped=function() stops=stops+1 end
+M.report_flatscreen(true)
+check(heartbeats==0,'an unknown loadout cannot announce flatscreen')
+plan.valid=true; supported=true; game.address=600; widget=new_widget(); tick()
+M.report_flatscreen(false)
+check(heartbeats==0,'waiting or inactive controls never announce flatscreen')
+M.report_flatscreen(true); M.report_flatscreen(true)
+check(heartbeats==1,'the active local holder sends at most one heartbeat per second')
+tick(); M.report_flatscreen(true)
+check(heartbeats==2,'active controls renew the server announcement')
+M.report_flatscreen(false); M.report_flatscreen(false)
+check(stops==1,'stopping controls removes the announcement once')
+M.report_flatscreen(true); M.clear(pawn,true)
+check(stops==2,'travel cleanup removes the announcement before releasing the holder')
+game.address=601; widget=new_widget(); tick()
+holder.ServerFlatscreenHeartbeat=nil
+check(M.report_flatscreen(true)==false and tick(),'older loadout packages do not break flatscreen controls')
 os.time=native_time
 print(count..' menu checks pass')

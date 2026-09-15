@@ -1,78 +1,51 @@
-# Release checks - 0.2.1
+# Release checks - 0.2.2 test update
 
-Last verified: **2026-09-15**. Sources: Lua checks, installer and native EXE
-checks, saved editor/package reports, and recorded local play tests.
+16 September 2026. Code and build checks do not replace play tests.
 
 ## Code and build checks
 
-- 476 checks pass across all ten Lua suites: camera 51, controls 141,
+- 485 checks pass across all ten Lua suites: camera 53, controls 141,
   inventory 47, ammo 23, item actions 14, placement 21, settings 42, room 36,
-  menu 82, HUD 19. These use fake game objects and do not replace play tests.
-- 27 installer checks pass. They cover setup, repair, older app versions
-  (0.1.0 and 0.2.0), runtime upgrades, backups, loader conflicts, changed
-  files, removal, failed-save rollback, Steam paths, and game version checks.
-- The native form check passes for three tabs, 24 controls, settings round
-  trips, atomic saves, and Steam startup. Its saved INI passes 43 checks.
-  The new 0.2.1 EXE passes its isolated startup check.
-- The EXE contains 17 approved files. Embedded runtime files match source;
-  pinned UE4SS files match their official hashes. Private-data and PowerShell
-  syntax checks pass. All ten Lua files also match the preview tested in Nuketown.
-- 79 editor checks passed for the Quest pointer patch. They cover all three
-  armor holders, the stock UI ray, opening/closing the desktop popup, menus,
-  HUD, button bindings, and crosshair anchors. The same PAKs are used here;
-  no new asset edits or cooks were needed for the Windows fix.
-- Windows, WindowsServer, and Android ASTC cooks passed. Each PAK contains
-  25 files. Each ZIP has one exact forward-slash Content entry, and its
-  decompressed PAK hash matches the cook report.
+  menu 89, HUD 19. These use fake game objects.
+- 28 installer checks pass. They cover setup, repair, upgrades from 0.1.0, 0.2.0 and 0.2.1,
+  backups, conflicts, removal, and failed-save rollback.
+- The native 0.2.2 EXE startup check passes.
+- The EXE contains 17 approved files. Source files and pinned UE4SS files
+  match their checked hashes. Private-data and PowerShell syntax scans pass.
+- 129 checks pass after reopening the saved Blueprints. They cover all three
+  armor holders, Quest and Windows popup behavior, pointer collision, death
+  cleanup, links, the player list, and server announcement start/stop/expiry.
+- Windows, WindowsServer, and Android ASTC cooks pass. Each PAK has 27 files.
+  Each ZIP has one exact forward-slash Content entry. Its decompressed PAK
+  hash matches the checked build.
+- Native popup and menu images were reviewed. The image helper hit a Slate
+  assertion during editor shutdown after saving them. The separate reopened
+  Blueprint checks and platform cooks completed successfully.
 
-## Confirmed in play
+## Play checks
 
-- **This patch, Windows:** Experimental Start in Flatscreen, a CVRFlatscreen
-  server, bots, and Nuketown. The player confirmed startup and controls work.
-  Game logs show the expected loadout, XR off, gun swaps, recoil, and reload.
-- **This patch, Quest:** the player confirmed the death-menu pointer fix works.
-  That test does not establish coverage for every map, armor, or controller hand.
-- Earlier checks confirmed mouse/WASD, VR return, menus, pickup, chest ammo,
-  station refills, crouch, crosshair, close aim, wall pullback, and HUD settings.
-- Earlier headset-free checks confirmed return to HQ after leaving a match
-  and a clean exit from an unsupported online server.
-- Earlier sprint checks confirmed gun motion, faster aim timing, Shift alone
-  staying still, and releasing Shift to stop sprint.
+No Quest device or mixed multiplayer test has run for these new features.
+Test the welcome, Continue in VR, bottom-center button, links, death, Respawn,
+Change Loadout, leaving/rejoining, and the player list on both platforms.
+Test a dedicated server too. PC players need CVR Link 0.2.2 to announce their
+mode. Older apps will not appear, so this is not a complete platform list.
 
-The final removal of the after-sprint firing delay is code checked; a separate
-live confirmation remains pending. The local Windows app used for the
-Nuketown test was a 0.2.0 preview with the same Lua and settings code.
-The published app uses version 0.2.1 and passed fresh build/setup checks.
-
-## Release files
-
-CVR Link 0.2.1 EXE SHA-256:
-`0DA88B692DC6F971AE20FD5C039149015DCA788659FC6D0F27E36C774476E2D6`.
-
-The anonymous GitHub EXE and SHA256SUMS downloads match the checked files.
-Tag `v0.2.1` points to source commit
-`5a8409699e4927a6ad9deb50f4d54e62d2d771fe`.
-
-Mod.io mod 6383627 uses Windows file 8216494, server 8216495, and Android
-8216497, all version 0.2.1. Windows is the default file. Their anonymous ZIP
-downloads, exact entry names, and decompressed PAK hashes passed the Quest
-patch publication checks. Fresh downloads passed all three checks again for
-this app release. The listing and all three file notes now describe the
-confirmed fixes and link to CVR Link 0.2.1. Platform tags and metadata match
-the previous release; the loadout files are unchanged.
+The prior 0.2.1 Quest death-menu fix and Windows Nuketown startup fix were
+confirmed by the player. Those reports do not establish that 0.2.2 works on
+every map, armor choice, or controller hand.
 
 ## Limits
 
-Mixed PC/Quest multiplayer, dedicated servers, clean-PC setup, Windows
-elevation on a protected Steam folder, more maps and guns, repeated travel
-and rejoining, and long sessions still need tests. A fresh download still
-needs Windows play without the local development copy. Gadget hands stay
-hidden; loose-round pouch guns lack keyboard reload.
+Clean-PC setup, protected Steam folders, more guns/maps, and long sessions
+still need tests. The EXE is unsigned. Gadget hands stay hidden in flatscreen;
+loose-round guns lack keyboard reload. Quest mouse-and-keyboard work remains
+deferred; Quest uses VR controllers.
 
-Quest mouse-and-keyboard work is deferred. Quest currently uses VR
-controllers. Custom maps must support the player's platform.
-
-The exact loadout, local mode choice, and live app checks run on the player's
-PC. Experimental also allows the local HQ. These checks are not server
-anti-cheat. The EXE is unsigned. The public source has no account tokens,
+The loadout gate runs on the player's PC. The player list uses reports from
+the app. Neither is server anti-cheat. The public source has no account tokens,
 private history, or game files. UE4SS 3.0.1 is bundled under its MIT license.
+
+## Checked app
+
+CVR Link 0.2.2 EXE SHA-256:
+`F9C9320D1E2ED0532ADEE40C1C976CEFEF4316DA5135C24369A1B1C0CB7EC44A`.

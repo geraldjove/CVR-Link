@@ -21,6 +21,7 @@ local function report(message)
     if file then file:write(tostring(os.time()), '|', message, '\n'); file:close() end
 end
 local function restore(reason)
+    menu.report_flatscreen(false)
     hud.stop()
     if not snapshot then return end
     local controls_ok, controls_error = pcall(controls.stop)
@@ -143,6 +144,7 @@ local function tick(context)
             controls.tick(pawn,pc,camera,view,dx,dy)
             hud.update(menu.hud(),pawn,menu.settings,controls.hud_state())
         end
+        menu.report_flatscreen(snapshot~=nil)
         if last_report ~= os.time() then
             last_report = os.time()
             local rot = camera:K2_GetComponentRotation()

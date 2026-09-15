@@ -1,38 +1,36 @@
-# CVR Link / CVRFlatscreen 0.2.1
+# CVR Link / CVRFlatscreen 0.2.2
 
-15 September 2026
+16 September 2026. Quest menu and player list test update.
 
-This patch fixes two problems reported during play.
+## What's new
 
-## What's fixed
-
-- **Quest:** the laser now works on the death menu, so you can pick Respawn
-  or Change Loadout. The fix is confirmed on Quest.
-- **Windows:** fixed an error that could leave the game stuck in VR when
-  entering a match. Flatscreen now waits for your player to finish loading,
-  then starts on its own. Tested using CVR Link's Experimental start with
-  CVRFlatscreen and bots in Nuketown.
+- Quest players get a welcome when they join a CVRFlatscreen Loadout Server.
+  It explains that flatscreen needs the Windows PCVR game and CVR Link.
+  Choose **Continue in VR** to close it.
+- The **CVRFlatscreen** button at the bottom center of the game menu opens
+  the popup again. Find the mod download, CVR Link, Discord, and author there.
+- Windows and Quest menus now list players running flatscreen through the
+  updated app. Switching to VR removes their name. If updates stop, their
+  name clears within four seconds. Older apps do not report their mode.
 
 ## How to update
 
-**Windows:** close Contractors and CVR Link. Download the new
-[CVRLink.exe](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.1),
-open it, and click **Install CVR Link**. Use the updated desktop shortcut
-next time. Your saved keys and settings stay in place.
+**Quest:** update **CVRFlatscreen** in Contractors, then restart the game.
+Join a match using this loadout and play with your normal VR controllers.
+You do not need the Windows app on Quest.
 
-Update **CVRFlatscreen** in the game's mod browser too. The loadout update
-does not update the Windows app.
+**Windows:** close Contractors and CVR Link. Download
+[CVRLink.exe](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.2),
+open it, and click **Install CVR Link**. Update the in-game loadout too.
+Use the updated desktop shortcut next time. Your saved settings stay in place.
+PC players need the new app to appear in the flatscreen list.
 
-**Quest:** update CVRFlatscreen in the game, then restart Contractors.
-You do not need the Windows app. If you already have the 0.2.1 Quest patch,
-you already have the latest loadout files.
+## Test status
 
-## Still being tested
-
-More maps, guns, armor choices, long matches, mixed PC/Quest play, and
-dedicated servers still need tests. Quest uses normal VR controllers;
-Quest mouse-and-keyboard play is planned for later. Gadget hands stay hidden
-in flatscreen. Guns with loose-round pouches do not have keyboard reload yet.
+Code, editor, installer, and package checks pass. The new popup, links,
+menu position, and player list still need Quest and mixed PC/Quest play tests.
+Please check death, Respawn, Change Loadout, and leaving/rejoining too.
+Dedicated servers and wider map, armor, and weapon coverage remain open.
 
 Author: **_mintyfishy** | [Discord](https://discord.gg/432n3NTq9f) |
 [CVR Link](https://github.com/geraldjove/CVR-Link) |
