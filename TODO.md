@@ -9,7 +9,7 @@
 - [ ] Check that respawn and armor changes do not repeat the welcome, and a
   new match shows it again.
 - The flatscreen player list was removed at Gerald's request on 16 September
-  2026. Check that only the CVRFlatscreen button remains after the next update.
+  2026. Check that only the CVRFlatscreen button remains after updating to 0.2.3.
 - [ ] Investigate the single-player-only report. Gerald sees the PC name in
   the stock game display and cannot access online play. The exact connection
   error and active online identity provider are still unknown; a name change
