@@ -49,10 +49,17 @@ The published app uses version 0.2.1 and passed fresh build/setup checks.
 CVR Link 0.2.1 EXE SHA-256:
 `0DA88B692DC6F971AE20FD5C039149015DCA788659FC6D0F27E36C774476E2D6`.
 
+The anonymous GitHub EXE and SHA256SUMS downloads match the checked files.
+Tag `v0.2.1` points to source commit
+`5a8409699e4927a6ad9deb50f4d54e62d2d771fe`.
+
 Mod.io mod 6383627 uses Windows file 8216494, server 8216495, and Android
 8216497, all version 0.2.1. Windows is the default file. Their anonymous ZIP
 downloads, exact entry names, and decompressed PAK hashes passed the Quest
-patch publication checks. This app release keeps those same loadout files.
+patch publication checks. Fresh downloads passed all three checks again for
+this app release. The listing and all three file notes now describe the
+confirmed fixes and link to CVR Link 0.2.1. Platform tags and metadata match
+the previous release; the loadout files are unchanged.
 
 ## Limits
 
