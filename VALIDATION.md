@@ -30,8 +30,9 @@ FOV and automatic bolts were confirmed in the earlier preview. The Quest
 welcome appeared after reinstalling 0.2.2. The earlier Quest death-menu and
 Windows Nuketown startup fixes were confirmed in play.
 
-The earlier multiplayer lock with Experimental start remains unresolved.
-No online-access fix is claimed. Clean-PC setup, protected Steam folders,
+The player also confirmed that multiplayer access works again with the new
+build. The earlier multiplayer-lock report is resolved for that play test.
+Clean-PC setup, protected Steam folders,
 and long sessions still need tests. The EXE is unsigned. Gadget hands stay
 hidden; loose-round guns lack keyboard reload. Quest uses VR controllers.
 
@@ -43,7 +44,7 @@ tokens, private history, or game files. UE4SS 3.0.1 keeps its MIT license.
 Mod.io 6383627 keeps Windows **8218361** (default), server **8218362**, and
 Android **8218363**, all 0.2.3. The 0.2.4 fixes are in the Windows app. The
 mod.io page and package notes link to that app. Android discovery and the
-existing platform mappings must pass the publication readback.
+existing platform mappings pass the publication readback.
 
 ## Checked app
 
@@ -53,3 +54,11 @@ CVR Link 0.2.4 EXE SHA-256:
 All ten runtime files and the settings form match the player-confirmed local
 preview. Packaging changes only the app/setup version. The installed preview
 was not replaced during publication.
+
+## Published downloads
+
+The anonymous EXE and SHA256SUMS downloads match the checked build. Tag
+`v0.2.4` points to `f22dcae9845cebbbb4f29b3496b5f0cb98acf008`.
+All three mod.io ZIP downloads also match, including exact entry names and
+unpacked PAK hashes. Windows remains the default file. The page and all three
+package notes link to CVR Link 0.2.4; Android-filtered discovery passes.

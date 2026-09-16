@@ -48,6 +48,7 @@ Your flatscreen choice stays through death and respawn while CVR Link stays on.
 - **Menu fix:** Tab no longer opens the pause menu over loadout or respawn.
   These screens keep their pointer until they close.
 - Change the F9 key under **Pointer / mouse look** in CVR Link.
+- **Multiplayer works again**, confirmed in play with the new build.
 
 The pointer and menu fix is confirmed in play. It needs the new Windows app.
 The Windows, Quest, and server loadout files stay at 0.2.3.
@@ -62,8 +63,8 @@ The Windows, Quest, and server loadout files stay at 0.2.3.
   Quest. The CVRFlatscreen button and popup still show downloads and help.
 
 FOV and bolt cycling are confirmed in play. More guns and maps need tests.
-The Quest welcome stays in place. A multiplayer lock has been reported with
-Experimental start and is still being checked.
+The Quest welcome stays in place. Multiplayer access is working again in
+the new build, confirmed by the player.
 
 Windows players should update both CVR Link and the in-game loadout. Close the
 game and app, open the new EXE, and click Install. Use the updated desktop

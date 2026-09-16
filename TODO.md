@@ -19,10 +19,9 @@
   new match shows it again.
 - The flatscreen player list was removed at Gerald's request on 16 September
   2026. Check that only the CVRFlatscreen button remains after updating to 0.2.3.
-- [ ] Investigate the single-player-only report. Gerald sees the PC name in
-  the stock game display and cannot access online play. The exact connection
-  error and active online identity provider are still unknown; a name change
-  is not a verified fix.
+- [x] Resolve the single-player-only report. Gerald confirmed on 16 September
+  2026 that multiplayer access works again with the new build. The exact
+  original login cause was not established; the play result is confirmed.
 
 ## Standalone Quest mouse and keyboard
 

@@ -11,6 +11,7 @@
 - **Pointer key setting:** change F9 under **Pointer / mouse look** in CVR
   Link. Existing custom keys stay in place. If F9 is already used, the new
   action takes the first free key starting with F10.
+- **Multiplayer is working again**, confirmed in play with the new build.
 
 Looking around an open menu keeps weapon and movement actions paused.
 Opening or closing a screen resets the pointer choice.
@@ -37,8 +38,7 @@ The original sky-facing join angle was not captured; F9 offers a way to look
 back toward an off-screen menu.
 
 FOV 80 to 120, automatic bolt cycling, and the simpler menu from 0.2.3 remain.
-The earlier multiplayer lock with Experimental start is still unresolved;
-this release does not include an online sign-in fix.
+Multiplayer access is also confirmed working in the new build.
 
 Author: **_mintyfishy** | [Discord](https://discord.gg/432n3NTq9f) |
 [CVR Link](https://github.com/geraldjove/CVR-Link) |
