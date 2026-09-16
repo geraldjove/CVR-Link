@@ -106,12 +106,19 @@ grip.K2_GetComponentLocation=function() return point end
 grip.IsInteracting=function() return busy end
 grip.CanBeginInteraction=function(_,controller) assert(controller==right); return allowed end
 local traces=0
+local obstruction,crate,wall_behind
 StaticFindObject=function(path)
     assert(path=='/Script/Engine.Default__KismetSystemLibrary')
-    return {LineTraceSingle=function(_,world,start,finish,channel,complex,ignore)
-        assert(world==pawn and start.Z==170 and finish.X==point.X and channel==0 and not complex)
-        assert((#ignore==2 or (#ignore==3 and ignore[3]==held)) and ignore[1]==pawn and ignore[2]==dropped)
-        traces=traces+1; return blocked
+    return {LineTraceSingle=function(_,world,start,finish,channel,complex,ignore,draw,hit,ignore_self)
+        assert((world==pawn or world==crate) and start.Z==170 and finish.X==point.X and channel==0 and not complex)
+        assert(ignore_self and #ignore==0)
+        traces=traces+1
+        if obstruction then
+            -- UE4SS 3.0.1 discards Lua array input; only native ignore-self works.
+            if world==crate then return wall_behind end
+            hit.Component={Get=function() return obstruction end}
+        end
+        return blocked
     end}
 end
 held=nil; inventory.interact(state,right,camera)
@@ -156,6 +163,36 @@ blocked=false; point.X=201; inventory.interact(state,right,camera)
 check(supplied==1,'a station beyond reach cannot refill ammo')
 point.X=100; held=nil; inventory.interact(state,right,camera)
 check(supplied==2 and not held,'station refill also works with an empty hand')
+local stock_mesh='StaticMesh /Game/Maps/Scene_RES/MilitaryBase/Meshes/SM_MERGED_SupplyPack_01_Single_Can.SM_MERGED_SupplyPack_01_Single_Can'
+local mesh_name,inside_distance=stock_mesh,0
+crate=object({})
+obstruction=object({GetOwner=function() return crate end,
+    IsA=function(_,path) return path=='/Script/Engine.StaticMeshComponent' end,
+    StaticMesh=object({GetFullName=function() return mesh_name end}),
+    GetClosestPointOnCollision=function(_,target,out,bone)
+        assert(target.X==point.X and target.Z==point.Z and bone=='None')
+        return inside_distance
+    end})
+FName=function(name) return name end
+blocked=true; wall_behind=false; held=melee; previous=traces
+inventory.interact(state,right,camera)
+check(supplied==3 and held==melee and traces==previous+2,'native ignore-self skips the containing stock can even when Lua ignore arrays are discarded')
+wall_behind=true; inventory.interact(state,right,camera)
+check(supplied==3 and state.interaction=='blocked','a real wall behind the stock ammo can still blocks refill')
+wall_behind=false; mesh_name='StaticMesh /Game/Wall.Wall'; previous=traces
+inventory.interact(state,right,camera)
+check(supplied==3 and traces==previous+1 and state.interaction=='blocked','ordinary map geometry is never ignored')
+mesh_name=stock_mesh; inside_distance=25; inventory.interact(state,right,camera)
+check(supplied==3 and state.interaction=='blocked','an ammo prop with the supply point outside its collision still blocks the path')
+inside_distance=-1; inventory.interact(state,right,camera)
+check(supplied==3,'missing stock ammo-can collision cannot grant ammo')
+inside_distance=0; obstruction.StaticMesh.invalid=true; inventory.interact(state,right,camera)
+check(supplied==3,'an unavailable ammo-can mesh cannot grant ammo')
+obstruction.StaticMesh.invalid=false; crate.invalid=true; inventory.interact(state,right,camera)
+check(supplied==3 and state.interaction=='blocked','an invalid prop owner cannot turn a failed world lookup into a clear ray')
+crate.invalid=false; dropped.IsA=function() return false end
+held=nil; grip.DefaultInteractionButton=0; allowed=true; inventory.interact(state,right,camera)
+check(not held and state.interaction=='blocked','a stock ammo prop does not permit picking up unrelated items through it')
 ammo.refill=refill
 print(count..' inventory and interaction checks passed')
 os.clock=real_clock

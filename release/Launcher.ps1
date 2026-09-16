@@ -19,7 +19,7 @@ function Add-Shortcuts {
         $link.TargetPath=$Executable;$link.WorkingDirectory=Split-Path -Parent $Executable;$link.Description='CVRFlatscreen keys, mouse and HUD settings';$link.Save()
     }
     New-Item -Path $registration -Force | Out-Null
-    foreach($entry in @{DisplayName='CVR Link';DisplayVersion='0.2.4';Publisher='_mintyfishy';DisplayIcon=$Executable;UninstallString=('"'+$Executable+'" --uninstall');URLInfoAbout='https://github.com/geraldjove/CVR-Link'}.GetEnumerator()){
+    foreach($entry in @{DisplayName='CVR Link';DisplayVersion='0.2.9';Publisher='_mintyfishy';DisplayIcon=$Executable;UninstallString=('"'+$Executable+'" --uninstall');URLInfoAbout='https://github.com/geraldjove/CVR-Link'}.GetEnumerator()){
         New-ItemProperty -LiteralPath $registration -Name $entry.Key -Value $entry.Value -PropertyType String -Force | Out-Null
     }
 }

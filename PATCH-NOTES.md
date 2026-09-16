@@ -1,44 +1,40 @@
-# CVR Link 0.2.4 - Pointer and menu fix
+# CVR Link 0.2.9 - Stock ammo box fix
 
 16 September 2026
 
-## What's new
+## What's fixed
 
-- **F9 switches pointer and mouse look.** If a menu is outside your view,
-  press F9, look toward it, then press F9 again to click it.
-- **Tab keeps menus from overlapping.** It no longer opens the pause menu
-  over the loadout or respawn screen. Those screens keep their pointer.
-- **Pointer key setting:** change F9 under **Pointer / mouse look** in CVR
-  Link. Existing custom keys stay in place. If F9 is already used, the new
-  action takes the first free key starting with F10.
-- **Multiplayer is working again**, confirmed in play with the new build.
+- **E now works at stock ammo boxes.** Aim at the box and press E to refill
+  your chest ammo while keeping your gun in hand.
+- Refills use the box's normal supply charges. Full chest ammo uses no charge.
+- The two-metre reach and wall checks stay in place.
 
-Looking around an open menu keeps weapon and movement actions paused.
-Opening or closing a screen resets the pointer choice.
+The fix is confirmed on Lumber. More stock and custom maps still need tests.
 
 ## How to update
 
-**Windows:** close Contractors and CVR Link. Download
-[CVRLink.exe](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.4),
-open it, and click **Install CVR Link**. Use the updated desktop shortcut.
-Your saved settings stay in place. Updating the loadout alone does not update
-CVR Link.
+Close Contractors and CVR Link. Download
+[CVR Link 0.2.9](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.9),
+open it, and click **Install CVR Link**. Use the updated desktop shortcut
+next time. Your keys and settings stay saved. Opening an older EXE can put
+older mod files back, so use the new copy after setup.
 
-The Windows, Quest, and server **loadout files remain at 0.2.3**. They already
-have the current game assets. Quest players keep using VR controllers and do
-not need the Windows app.
+The fix needs the Windows app update. The Windows, Quest, and server loadout
+files stay at **0.2.3**. Quest players keep using their normal VR controllers.
 
-## Test status
+## Still included
 
-The player confirmed the pointer/menu preview works correctly in game.
-All 526 Lua checks pass, along with installer, settings, and app checks.
-The release uses the same runtime as that preview. Wider maps, repeated
-join/death/respawn, mixed PC/Quest play, and dedicated servers still need tests.
-The original sky-facing join angle was not captured; F9 offers a way to look
-back toward an off-screen menu.
+F9 pointer control, the Tab menu fix, FOV from 80 to 120, automatic bolt
+cycling, and the Quest welcome remain. The flatscreen player list stays
+removed. Multiplayer access is working again, as confirmed in the earlier build.
 
-FOV 80 to 120, automatic bolt cycling, and the simpler menu from 0.2.3 remain.
-Multiplayer access is also confirmed working in the new build.
+## Checks
+
+The Lumber play test shows ammo refilling and supply charges being spent.
+Repeated E presses with full chest ammo spent no extra charges. All 534 Lua
+checks pass. Installer, app, and native collision checks also pass.
+Wider maps, empty boxes, cooldown, mixed PC/Quest play, and dedicated servers
+still need tests.
 
 Author: **_mintyfishy** | [Discord](https://discord.gg/432n3NTq9f) |
 [CVR Link](https://github.com/geraldjove/CVR-Link) |

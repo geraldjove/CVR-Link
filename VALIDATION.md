@@ -1,64 +1,51 @@
-# Release checks - CVR Link 0.2.4
+# Release checks - CVR Link 0.2.9
 
-16 September 2026. Code and build checks do not replace play tests.
+16 September 2026. Code checks and play tests are separate evidence.
 
 ## Code and build checks
 
-- 526 checks across ten Lua suites: camera 51, controls 175, inventory 47,
+- 534 checks across ten Lua suites: camera 51, controls 175, inventory 55,
   ammo 23, item actions 14, placement 21, settings 56, room 36, menu 82, HUD 21.
-- 30 installer checks cover setup, repair, upgrades from 0.1.0 through 0.2.3,
-  backups, conflicts, removal, and failed-save rollback.
-- Native settings form: pointer action, capture button, key save, reset,
-  and visual review. 57 GUI settings-file checks pass in the release.
-- Native release EXE startup, PowerShell syntax, the 34-file public export,
-  and the 17-file EXE source/vendor/private-data scans pass.
-- Read-only editor probes confirm the stock stationary UI, forced UI, and
-  menu input branches used by the fix. No asset changes were needed.
-- The 0.2.3 loadout keeps its earlier 115 reopened Blueprint checks, three
-  successful cooks, and 25 PAK entries on each platform. Exact ZIP paths and
-  decompressed PAK hashes are checked when updating the mod.io notes.
+- 35 installer checks cover setup, repair, upgrades from 0.1.0 and 0.2.0
+  through 0.2.8, backups, conflicts, removal, and failed-save rollback.
+- Native form and 57 GUI settings-file checks pass. The form source is unchanged;
+  its earlier key capture, save/reset, and visual review still apply.
+- Native release EXE, PowerShell syntax, and the 17-file EXE source/vendor/
+  private-data scan pass. Only the 34 approved files enter the public export.
+- A native editor test confirms the stock ammo can is skipped with ignore-self,
+  while a real wall still blocks the retry. The Lua regression test models
+  the pinned loader's dropped array inputs and failed before the fix.
+- No assets changed. The 0.2.3 loadout retains 115 reopened Blueprint checks,
+  three successful cooks, and 25 PAK entries per platform.
 
 ## Play checks and limits
 
-The player confirmed that the local pointer/menu preview works correctly.
-The release runtime matches that preview. This confirmation does not cover
-all maps or repeated join/death/respawn, mixed PC/Quest, or dedicated servers.
-The original sky-facing join angle was already gone when captured. F9 lets
-players look back toward an off-screen menu; its initial angle needs more checks.
+The player confirmed stock ammo refills on Lumber in local preview 0.2.8.
+The log shows two one-magazine refills spending a supply charge each.
+Repeated E presses with full chest ammo spent no extra charges.
 
-FOV and automatic bolts were confirmed in the earlier preview. The Quest
-welcome appeared after reinstalling 0.2.2. The earlier Quest death-menu and
-Windows Nuketown startup fixes were confirmed in play.
+The release removes local logging from Inventory.lua; its decision logic was
+compared with the tested preview. The other nine Lua files and settings form
+are identical. Wider stock/custom maps, empty supplies, cooldown, live range
+and wall rejection, mixed PC/Quest, and dedicated servers still need tests.
 
-The player also confirmed that multiplayer access works again with the new
-build. The earlier multiplayer-lock report is resolved for that play test.
-Clean-PC setup, protected Steam folders,
-and long sessions still need tests. The EXE is unsigned. Gadget hands stay
-hidden; loose-round guns lack keyboard reload. Quest uses VR controllers.
+Earlier F9/menu, FOV, automatic bolts, Quest welcome, and multiplayer access
+were confirmed in their respective builds. The original sky-facing join
+angle was not captured. Wider joins, respawns, and long sessions remain open.
+Clean-PC/UAC setup and signing remain open. Gadget hands stay hidden;
+loose-round guns lack keyboard reload. Quest uses VR controllers.
 
-The loadout gate runs on the player's PC. Public source has no account
-tokens, private history, or game files. UE4SS 3.0.1 keeps its MIT license.
+The exact loadout gate and live helper lease stay in place. Public source
+contains no private history, local logs, credentials, or game assets.
+UE4SS 3.0.1 is bundled with its MIT license.
 
-## Loadout files
+## Files and downloads
 
-Mod.io 6383627 keeps Windows **8218361** (default), server **8218362**, and
-Android **8218363**, all 0.2.3. The 0.2.4 fixes are in the Windows app. The
-mod.io page and package notes link to that app. Android discovery and the
-existing platform mappings pass the publication readback.
+CVR Link 0.2.9 EXE SHA-256:
+`174D200526D70D504D6B12B30DB8914B789E1D01CC121EA83D7BC0DCA4CA7A22`.
 
-## Checked app
+The installed, player-confirmed 0.2.8 preview is kept in place during publication.
+Mod.io 6383627 keeps Windows 8218361 (default), server 8218362, and Android
+8218363, all loadout 0.2.3. The ammo fix needs the Windows app update.
 
-CVR Link 0.2.4 EXE SHA-256:
-`2798A82BADB9E5797B224B3126F18F61C5CCEFE6E8BEF43F9FB1C2C087934E20`.
-
-All ten runtime files and the settings form match the player-confirmed local
-preview. Packaging changes only the app/setup version. The installed preview
-was not replaced during publication.
-
-## Published downloads
-
-The anonymous EXE and SHA256SUMS downloads match the checked build. Tag
-`v0.2.4` points to `f22dcae9845cebbbb4f29b3496b5f0cb98acf008`.
-All three mod.io ZIP downloads also match, including exact entry names and
-unpacked PAK hashes. Windows remains the default file. The page and all three
-package notes link to CVR Link 0.2.4; Android-filtered discovery passes.
+Publication/download readback is pending.

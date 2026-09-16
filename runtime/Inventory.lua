@@ -1,6 +1,7 @@
 -- Stock local holsters and grip interactions; no item spawning or loadout edits.
 local M={}
 local ammo=require('Ammo')
+local stock_ammo_can='StaticMesh /Game/Maps/Scene_RES/MilitaryBase/Meshes/SM_MERGED_SupplyPack_01_Single_Can.SM_MERGED_SupplyPack_01_Single_Can'
 local groups={One={'Primary','Alt-Primary'},Two={'Sidearm'},Three={'Gadget1'},Four={'Gadget2'},Five={'Gadget3'},V={'Melee'}}
 local function valid(o) return o and o:IsValid() end
 local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetAddress() end
@@ -70,11 +71,22 @@ function M.interact(inventory,right,camera)
     local color={R=0,G=0,B=0,A=0}
     for _,candidate in ipairs(candidates) do
         local hit={}
-        local ignore={inventory.pawn,candidate.item}
-        if valid(held) then ignore[#ignore+1]=held end
-        -- Only the local pawn and target are ignored; walls still block the reach.
+        -- UE4SS 3.0.1 drops array inputs; native ignore-self skips the local pawn.
         local blocked=system:LineTraceSingle(inventory.pawn,start,candidate.point,0,false,
-            ignore,0,hit,true,color,color,0)
+            {},0,hit,true,color,color,0)
+        if blocked and candidate.station then
+            local component=hit.Component and hit.Component:Get()
+            if valid(component) and component:IsA('/Script/Engine.StaticMeshComponent')
+                and valid(component.StaticMesh) and component.StaticMesh:GetFullName()==stock_ammo_can
+                and component:GetClosestPointOnCollision(candidate.point,{},FName('None'))==0 then
+                -- Use the containing prop as self; real walls still block the retry.
+                local prop=component:GetOwner()
+                if valid(prop) then
+                    blocked=system:LineTraceSingle(prop,start,candidate.point,0,false,
+                        {},0,{},true,color,color,0)
+                end
+            end
+        end
         if not blocked then
             if candidate.station then
                 local count,message=ammo.refill(inventory.pawn,candidate.item)

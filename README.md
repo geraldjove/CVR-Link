@@ -41,20 +41,23 @@ Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's new in CVR Link 0.2.4
+### What's new in CVR Link 0.2.9
 
-- **F9:** switch between mouse look and the menu pointer. If a menu is outside
-  your view, press F9, look toward it, then press F9 again to click.
-- **Menu fix:** Tab no longer opens the pause menu over loadout or respawn.
-  These screens keep their pointer until they close.
-- Change the F9 key under **Pointer / mouse look** in CVR Link.
-- **Multiplayer works again**, confirmed in play with the new build.
+- **Stock ammo boxes:** aim at the box and press E to refill chest ammo while
+  keeping your gun in hand. Refills use the box's normal supply charges.
+- Full chest ammo uses no charge. The two-metre reach and wall checks remain.
+- Confirmed on Lumber; more stock and custom maps still need tests.
 
-The pointer and menu fix is confirmed in play. It needs the new Windows app.
-The Windows, Quest, and server loadout files stay at 0.2.3.
+Windows players need the new CVR Link app for this fix. The Windows, Quest,
+and server loadout files stay at 0.2.3. Use the updated desktop shortcut;
+opening an older EXE can put older mod files back.
 
 ### Also included
 
+- **F9:** switch between mouse look and the menu pointer. If a menu is outside
+  your view, press F9, look toward it, then press F9 again to click.
+- **Menu fix:** Tab keeps the pause menu from covering loadout or respawn.
+  Those screens keep their pointer. Change F9 in CVR Link's key settings.
 - **FOV:** choose 80 to 120 degrees in UI Settings. The default is 80.
   Click Save settings to change it while playing.
 - **Automatic bolts:** bolt-action guns cycle after a shot. Release fire and

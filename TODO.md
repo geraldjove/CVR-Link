@@ -1,5 +1,21 @@
 # Future work
 
+## Ammo boxes on stock maps
+
+- [x] Confirm E at the stock Lumber ammo box. Gerald confirmed refills in
+  preview 0.2.8. The log shows two spent charges and no charge for full chest.
+- [x] Capture the stock can blocking the refill point on Lumber. The 0.2.7
+  trace confirms the retry hits the same can despite its ignore list.
+- [x] Verify UE4SS 3.0.1 drops Lua array inputs, then replace the retry's ignore
+  list with native ignore-self using the can as context. Keep containment,
+  range, aiming, stock charges/cooldown, and a second check for real walls.
+  Preview 0.2.8 passes 534 Lua, 34 installer, native EXE, and native collision
+  checks. Lumber refill and full-chest behavior are confirmed in play. No
+  assets changed. App 0.2.9 publication is in progress.
+- [ ] Retest wider stock/custom maps, empty station, cooldown, walls,
+  and two-metre reach. Confirm the running EXE and runtime hashes first;
+  an older review EXE replaced the diagnostic once. Evidence: docs/modio.md.
+
 ## Windows pointer and menus
 
 - [x] Keep the pointer for loadout/respawn and stop Tab stacking the pause menu.
@@ -14,7 +30,7 @@
 - [x] Confirm the 0.2.2 welcome and new game-menu UI appear on Quest.
   Gerald confirmed this after reinstalling the mod on 16 September 2026.
 - [ ] Test Continue in VR, reopening with the menu button, all links, and
-  Respawn/Change Loadout on the 0.2.2 Quest build.
+  Respawn/Change Loadout on the current 0.2.3 Quest build.
 - [ ] Check that respawn and armor changes do not repeat the welcome, and a
   new match shows it again.
 - The flatscreen player list was removed at Gerald's request on 16 September
@@ -25,7 +41,7 @@
 
 ## Standalone Quest mouse and keyboard
 
-Implementation remains deferred on 15 September 2026. Quest support in 0.2.2
+Implementation remains deferred since 15 September 2026. Quest support in 0.2.3
 is VR controller play. Gerald wants full VR on Quest 3 with both devices paired
 by Bluetooth. Local research records the engine
 input gates and the remaining unknown in the released game. No delivery date
