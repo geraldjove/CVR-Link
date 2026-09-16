@@ -2,6 +2,7 @@
 local M, state = {}, nil
 local inventory=require('Inventory')
 local actions=require('ItemActions')
+function M.apply_throw_velocity(controller,output) actions.apply_throw_velocity(controller,output) end
 local placement=require('Placement')
 local ammo=require('Ammo')
 local bindings,field_of_view={},80
@@ -49,6 +50,54 @@ local function relative(world,body)
     return {Rotation=multiply(inverse,world.Rotation),Scale3D={X=1,Y=1,Z=1},
         Translation=rotate(inverse,{X=world.Translation.X-body.Translation.X,
             Y=world.Translation.Y-body.Translation.Y,Z=world.Translation.Z-body.Translation.Z})}
+end
+local function continuous_rotation(q,previous)
+    local a=rotator(q)
+    if not previous then return a end
+    -- The stock receiver interpolates Euler angles. At a vertical wrist,
+    -- keep the equivalent branch that avoids a sudden 180-degree yaw/roll.
+    local b={Pitch=180-a.Pitch,Yaw=a.Yaw+180,Roll=a.Roll+180}
+    local function distance(r)
+        local sum=0
+        for _,axis in ipairs({'Pitch','Yaw','Roll'}) do
+            local delta=(r[axis]-previous[axis]+180)%360-180
+            sum=sum+delta*delta
+        end
+        return sum
+    end
+    return distance(b)<distance(a) and b or a
+end
+local function send_controller_poses()
+    local now=os.clock()
+    local rate=math.min(100,state.right.ControllerNetUpdateRate,state.left.ControllerNetUpdateRate)
+    if rate<=0 or now<(state.next_pose_send or 0) then return end
+    state.next_pose_send=now+1/rate
+    -- Stock replication uses actor rotation/scale with the mesh world origin.
+    local parent=state.pawn:GetParentActor()
+    local frame=transform((valid(parent) and parent or state.pawn):GetTransform())
+    frame.Translation=copy(state.pawn.Mesh:K2_GetComponentLocation(),{'X','Y','Z'})
+    state.sent_rotations=state.sent_rotations or {}
+    local function angle(value) return math.floor(value*65536/360+.5)%65536 end
+    for _,hand in ipairs({state.right,state.left}) do
+        local local_pose=relative(transform(hand:K2_GetComponentToWorld()),frame)
+        for _,axis in ipairs({'X','Y','Z'}) do
+            local_pose.Translation[axis]=local_pose.Translation[axis]/frame.Scale3D[axis]
+        end
+        local address=hand:GetAddress()
+        local r=continuous_rotation(local_pose.Rotation,state.sent_rotations[address])
+        state.sent_rotations[address]=r
+        local packet=local_pose.Translation
+        packet.YawPitchINT=angle(r.Yaw)*65536+angle(r.Pitch)
+        packet.RollSHORT=angle(r.Roll)
+        -- UE4SS 3.0.1 reads nested struct fields from the outer stack table.
+        -- Share it with Position so both copies see the vector and angle fields.
+        packet.Position=packet
+        local native=hand.ReplicatedControllerTransform
+        for _,axis in ipairs({'X','Y','Z'}) do native.Position[axis]=packet[axis] end
+        native.YawPitchINT,native.RollSHORT=packet.YawPitchINT,packet.RollSHORT
+        hand:Server_SendControllerTransform(packet)
+    end
+    state.pose_packets=(state.pose_packets or 0)+1
 end
 local function blend_reference(a,b,t)
     local q,position={},{}
@@ -127,6 +176,9 @@ function M.stop()
     for _,ring in ipairs(state.rings or {}) do
         if valid(ring.component) then ring.component:SetVisibility(ring.visible,false) end
     end
+    for _,laser in ipairs(state.lasers or {}) do
+        if valid(laser.component) then laser.component:SetHiddenInGame(laser.hidden,false) end
+    end
     if state.hand_mesh and valid(state.hand_mesh.component) then state.hand_mesh.component:SetVisibility(state.hand_mesh.visible,false) end
     if state.opened_menu and valid(state.pawn) and state.pawn.InputMode==1 then state.pawn:HideMenuUI() end
     for i=#state.poses,1,-1 do
@@ -135,6 +187,9 @@ function M.stop()
             saved.component:K2_SetRelativeLocationAndRotation(saved.position,saved.rotation,false,{},true)
             if saved.tick~=nil then
                 saved.component.bUseWithoutTracking=saved.untracked
+                saved.component.bReplicateWithoutTracking=saved.replicate_untracked
+                saved.component.PlayerIndex=saved.player_index
+                saved.component.CurrentTrackingStatus=saved.tracking_status
                 saved.component.bDisableLowLatencyUpdate=saved.low_latency
                 saved.component:SetTrackingMode(saved.tracking)
                 saved.component:SetComponentTickEnabled(saved.tick)
@@ -160,12 +215,22 @@ function M.start(pawn)
         local saved=pose(controller)
         saved.tick=controller:IsComponentTickEnabled()
         saved.untracked=controller.bUseWithoutTracking
+        saved.replicate_untracked=controller.bReplicateWithoutTracking
+        saved.player_index=controller.PlayerIndex
+        saved.tracking_status=controller.CurrentTrackingStatus
         saved.low_latency=controller.bDisableLowLatencyUpdate
         saved.tracking=controller.PendingTrackingMode
         state.poses[#state.poses+1]=saved
         controller.bUseWithoutTracking=true
+        -- Native untracked ticks replace positions with a fixed test pose.
+        -- Publish our final grips through the stock RPC after alignment instead.
+        controller.bReplicateWithoutTracking=false
+        controller.PlayerIndex=-1
+        controller.CurrentTrackingStatus=0
         controller.bDisableLowLatencyUpdate=true
-        controller:SetTrackingMode(1) -- ANIMATION: keep the interaction tick without tracked hand poses.
+        -- Keep native controller processing. Animation mode instead attaches the
+        -- grip to a mesh bone on every peer, bypassing the replicated controller.
+        controller:SetTrackingMode(0)
         controller:SetComponentTickEnabled(true)
     end
     state.pointer=pointer
@@ -173,11 +238,14 @@ function M.start(pawn)
     state.pointer_enabled=state.pointer.bIsEnabled
     state.poses[#state.poses+1]=pose(state.pointer.RootComponent)
     state.pointer:Enable()
-    state.rings={}
+    state.rings,state.lasers={},{}
     for _,pointer in ipairs({state.pointer,pawn.LeftUIInteractionActor}) do
         if valid(pointer) and valid(pointer.StaticMesh) then
             state.rings[#state.rings+1]={component=pointer.StaticMesh,visible=pointer.StaticMesh.bVisible}
             pointer.StaticMesh:SetVisibility(false,false)
+        end
+        if valid(pointer) and valid(pointer.LaserMesh) then
+            state.lasers[#state.lasers+1]={component=pointer.LaserMesh,hidden=pointer.LaserMesh.bHiddenInGame}
         end
     end
     state.inventory=inventory.new(pawn)
@@ -191,6 +259,43 @@ local function place(component, camera, forward, sideways, height, rotation)
         X=p.X+f.X*forward+r.X*sideways+u.X*height,
         Y=p.Y+f.Y*forward+r.Y*sideways+u.Y*height,
         Z=p.Z+f.Z*forward+r.Z*sideways+u.Z*height},rotation,false,{},true)
+end
+local function align_grip(controller,gun,is_right,base)
+    local interaction=controller:GetCurrentInteraction()
+    local grip=interaction.InteractionComponent:Get()
+    if not valid(grip) or not same(grip:GetOwner(),gun) then return false end
+    -- UE4SS 3.0.1 crashes copying FInteraction's weak object fields into native
+    -- calls. Read it only; use the registered indicator's UObject API instead.
+    if not same(state.indicator_gun,gun) then
+        state.indicator_gun,state.indicators=gun,{}
+        for _,indicator in ipairs(FindAllOf('ZomboyHandIndicatorComponent') or {}) do
+            if same(indicator:GetOwner(),gun) then state.indicators[#state.indicators+1]=indicator end
+        end
+    end
+    local current=transform(controller:K2_GetComponentToWorld())
+    local selected,best=nil,-math.huge
+    for _,indicator in ipairs(state.indicators) do
+        if valid(indicator) and same(indicator:GetOwner(),gun)
+            and same(indicator:GetRegisteredInteractionComponent(),grip)
+            and (indicator.HandUsage==2 or indicator.HandUsage==(is_right and 1 or 0)) then
+            local score=indicator:GetHandPosePriorityScore(is_right,current)
+            if score>best then selected,best=indicator,score end
+        end
+    end
+    if not selected then return false end
+    local target=transform(selected:GetTargetControllerTransformWorldSpace(is_right,current))
+    if target.Scale3D.X==0 then return false end
+    local local_pose=relative(target,transform(gun:GetTransform()))
+    local p=local_pose.Translation
+    -- A missing native pose can also be world identity. Keep hands within
+    -- the existing two-metre reach of their held gun instead of jumping there.
+    if p.X*p.X+p.Y*p.Y+p.Z*p.Z>200*200 then return false end
+    -- Send the base hold. Each peer's native gun modifier adds recoil once.
+    local orientation=multiply(base.Rotation,local_pose.Rotation)
+    local offset=rotate(base.Rotation,local_pose.Translation)
+    controller:K2_SetWorldLocationAndRotation({X=base.Translation.X+offset.X,
+        Y=base.Translation.Y+offset.Y,Z=base.Translation.Z+offset.Z},rotator(orientation),false,{},true)
+    return true
 end
 local function sight_reference(gun)
     for _,sight in ipairs(FindAllOf('ZomboyGunSightAttachmentActor') or {}) do
@@ -253,6 +358,9 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         state.pointer_yaw,state.pointer_pitch=0,0
         release_fire()
         if state.click then state.pointer:ReleasePointerKey(key('LeftMouseButton')); state.click=false end
+    end
+    for _,laser in ipairs(state.lasers) do
+        if valid(laser.component) then laser.component:SetHiddenInGame(laser.hidden or not pointer_mode,false) end
     end
     local menu=M.ui_active(pawn)
     local gun=holding()
@@ -452,8 +560,10 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         local visible=state.hand_mesh.visible and not state.hands_hidden
         if state.hand_mesh.component.bVisible~=visible then state.hand_mesh.component:SetVisibility(visible,false) end
     end
-    if M.apply_gun_pose(item,output) then
+    local applied,base=M.apply_gun_pose(item,output)
+    if applied then
         item:K2_SetActorLocationAndRotation(output.Translation,rotator(output.Rotation),false,{},true)
+        if valid(gun) and not menu then align_grip(state.right,gun,true,base) end
         if valid(gun) and valid(gun.ForeGripComponent) then
             local grip=gun.ForeGripComponent:K2_GetComponentLocation()
             state.left:K2_SetWorldLocationAndRotation(copy(grip,{'X','Y','Z'}),state.view,false,{},true)
@@ -464,13 +574,17 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
                     state.support_owned,state.support_gun=true,gun
                 end
             end
+            if not menu then align_grip(state.left,gun,false,base) end
         end
     end
     actions.tick(state.action,down.LeftMouseButton,not menu and not over_ui,pc,state.left,state.right,camera)
+    send_controller_poses()
 end
-function M.apply_utility_grab(item,output)
-    if state and not same(item,holding()) and M.apply_gun_pose(item,output) then
-        state.utility_grab_writes=(state.utility_grab_writes or 0)+1
+function M.apply_local_grab(item,output)
+    -- Native VR holding also writes the local gun after our character tick.
+    -- Finish that pass with the same camera pose and captured native recoil.
+    if M.apply_gun_pose(item,output) then
+        state.local_grab_writes=(state.local_grab_writes or 0)+1
         return true
     end
     return false
@@ -512,15 +626,22 @@ function M.apply_gun_pose(gun,output)
         end
     else
         reference=transform(gun.DefaultMuzzleRelativeTransform)
+        -- Keep the grip 35 cm ahead of the camera. A shared muzzle distance
+        -- stretches the arms on short guns and crowds the grip on long guns.
+        local grip=relative(transform(gun.PrimGripComponent:K2_GetComponentToWorld()),transform(gun:GetTransform()))
+        local q,muzzle=reference.Rotation,reference.Translation
+        local barrel=rotate({X=-q.X,Y=-q.Y,Z=-q.Z,W=q.W},
+            {X=muzzle.X-grip.Translation.X,Y=muzzle.Y-grip.Translation.Y,Z=muzzle.Z-grip.Translation.Z})
+        local hip_forward=35+math.max(0,barrel.X)
         aim=not state.zoom_mode and state.sight and state.ads_amount or 0
         if aim>0 then reference=blend_reference(reference,state.sight,aim) end
-        forward,sideways,height=100-82*aim,16*(1-aim),-14*(1-aim)
+        forward,sideways,height=hip_forward*(1-aim)+18*aim,16*(1-aim),-14*(1-aim)
         if state.aim_point then
             local point=state.aim_point
             local distance=(point.X-p.X)*f.X+(point.Y-p.Y)*f.Y+(point.Z-p.Z)*f.Z
             if distance>1 then
                 -- Pull the muzzle back as a wall gets close; never turn it back through the player.
-                local clearance=math.min(1,distance*.5/100)
+                local clearance=math.min(1,distance*.5/hip_forward)
                 forward=forward*(aim+(1-aim)*clearance)
                 sideways,height=sideways*clearance,height*clearance
             end
@@ -563,6 +684,7 @@ function M.apply_gun_pose(gun,output)
             {X=-math.sin(roll),Y=0,Z=0,W=math.cos(roll)}))
     end
     local result={Rotation=orientation,Translation={X=target.X-offset.X,Y=target.Y-offset.Y,Z=target.Z-offset.Z},Scale3D={X=1,Y=1,Z=1}}
+    local base=transform(result)
     if same(state.recoil_gun,gun) then
         local recoil=rotate(result.Rotation,state.recoil.Translation)
         result.Translation.X=result.Translation.X+recoil.X
@@ -574,7 +696,7 @@ function M.apply_gun_pose(gun,output)
         for _,axis in ipairs(axes) do output[field][axis]=result[field][axis] end
     end
     state.pose_writes=(state.pose_writes or 0)+1
-    return true
+    return true,base
 end
 function M.status()
     if not state then return '' end
@@ -589,6 +711,7 @@ function M.status()
         ..'|slide='..tostring(state.pawn:GetIsSliding())
         ..'|slides_started='..tostring(state.slides_started or 0)
         ..'|pose_writes='..tostring(state.pose_writes or 0)
+        ..'|pose_packets='..tostring(state.pose_packets or 0)
         ..'|recoil_degrees='..tostring(state.recoil_degrees or 0)..'|recoil_peak='..tostring(state.recoil_peak or 0)
         ..'|aim_mode='..(state.zoom_mode and 'zoom' or 'scope')
         ..'|ads_blend='..tostring(state.ads_amount or 0)..'|hands_hidden='..tostring(state.hands_hidden or false)
@@ -604,7 +727,7 @@ function M.status()
         ..'|reloads_completed='..tostring(state.reloads_completed or 0)
         ..'|reload_last_seconds='..tostring(state.reload_last_seconds or 0)
         ..'|item_action='..state.action.message
-        ..'|utility_grab_writes='..tostring(state.utility_grab_writes or 0)
+        ..'|local_grab_writes='..tostring(state.local_grab_writes or 0)
         ..'|item='..(valid(inventory.held(state.right)) and inventory.held(state.right):GetFName():ToString() or 'none')
         ..placement.status()
 end

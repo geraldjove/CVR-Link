@@ -1,40 +1,50 @@
-# CVR Link 0.2.9 - Stock ammo box fix
+# CVR Link 0.2.18 - Better weapon poses and new artwork
 
-16 September 2026
+16 September 2026 | CVRFlatscreen loadout 0.2.4
 
 ## What's fixed
 
-- **E now works at stock ammo boxes.** Aim at the box and press E to refill
-  your chest ammo while keeping your gun in hand.
-- Refills use the box's normal supply charges. Full chest ammo uses no charge.
-- The two-metre reach and wall checks stay in place.
+- Other VR players now see the flatscreen player's gun follow them when they
+  walk, run and turn. It no longer stays behind or climbs into the sky.
+- Rifles and pistols use the full up/down aim range in hip fire and ADS.
+- Pistols face the right way. Hip-fire hands sit closer to the body.
+- The local gun no longer jitters, and weapon and utility swaps work again.
+- The green menu laser stays hidden during play. F9 still brings back the
+  pointer when you need it.
 
-The fix is confirmed on Lumber. More stock and custom maps still need tests.
+The latest rifle and pistol poses were confirmed in a PC/Quest play test
+using preview 0.2.17. More guns, maps and long sessions still need tests.
+
+## New artwork
+
+- The Windows app, setup window and shortcuts now use the C$ Link icon.
+- The loadout now includes the matching image for the server loadout menu.
+  Windows, Quest and server files are updated. The saved image and packages
+  pass checks; its live server-menu display still needs a play check.
 
 ## How to update
 
-Close Contractors and CVR Link. Download
-[CVR Link 0.2.9](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.9),
-open it, and click **Install CVR Link**. Use the updated desktop shortcut
-next time. Your keys and settings stay saved. Opening an older EXE can put
-older mod files back, so use the new copy after setup.
+**Windows:** close Contractors and CVR Link. Download
+[CVR Link 0.2.18](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.18),
+open it, and click **Install CVR Link**. Update **CVRFlatscreen** in the game's
+mod browser, then restart. Use the updated desktop shortcut next time.
+Your saved keys and settings stay in place.
 
-The fix needs the Windows app update. The Windows, Quest, and server loadout
-files stay at **0.2.3**. Quest players keep using their normal VR controllers.
+**Quest:** update CVRFlatscreen to **0.2.4** and restart Contractors. Keep
+using your normal VR controllers. You do not need the Windows app on Quest.
+
+The weapon fixes need the Windows app update. Opening an older EXE can put
+older files back, so use the new copy after setup.
 
 ## Still included
 
-F9 pointer control, the Tab menu fix, FOV from 80 to 120, automatic bolt
-cycling, and the Quest welcome remain. The flatscreen player list stays
-removed. Multiplayer access is working again, as confirmed in the earlier build.
+Normal recoil, stock ammo refills with E, F9 pointer control, the Tab menu
+fix, FOV from 80 to 120, automatic bolt cycling, and the Quest welcome remain.
+The flatscreen player list stays removed. Matches still need the exact
+CVRFlatscreen loadout and a running CVR Link app for mouse and keyboard play.
 
-## Checks
-
-The Lumber play test shows ammo refilling and supply charges being spent.
-Repeated E presses with full chest ammo spent no extra charges. All 534 Lua
-checks pass. Installer, app, and native collision checks also pass.
-Wider maps, empty boxes, cooldown, mixed PC/Quest play, and dedicated servers
-still need tests.
+Utility up/down aim and grenade flight from the Quest view still need tests.
+Gadget hands stay hidden. Loose-round guns still lack keyboard reload.
 
 Author: **_mintyfishy** | [Discord](https://discord.gg/432n3NTq9f) |
 [CVR Link](https://github.com/geraldjove/CVR-Link) |

@@ -166,14 +166,14 @@ function M.tick(inventory,right)
     if pending.phase=='lower' then
         if not same(held,pending.old) then inventory.pending=nil; inventory.message='switch-cancelled'; return end
         if os.clock()-pending.started<.25 then return end
-        -- Keep the old weapon held through its lowering motion, then release before attaching.
-        if not pending.pc:RequestEndInteraction(right,pending.old_grip) then
-            inventory.pending=nil; inventory.message='release-rejected'; return
-        end
+        -- Set the native attachment intent while held, before VR drop/auto-holster runs.
         if not pending.pc:RequestSetInteractableAttachment(pending.old,pending.home.holster.RootComp,
             pending.home.socket,pending.home.attachment) then
-            right:TryBeginInteractWith(0,pending.old_grip)
             inventory.pending=nil; inventory.message='holster-rejected'; return
+        end
+        if not pending.pc:RequestEndInteraction(right,pending.old_grip) then
+            pending.pc:RequestSetInteractableAttachment(pending.old,nil,pending.home.socket,pending.home.attachment)
+            inventory.pending=nil; inventory.message='release-rejected'; return
         end
         pending.phase='equip'
         held=M.held(right)

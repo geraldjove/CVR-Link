@@ -16,10 +16,10 @@ function Add-Shortcuts {
     $shell=New-Object -ComObject WScript.Shell
     foreach($folder in [Environment]::GetFolderPath('DesktopDirectory'),[Environment]::GetFolderPath('Programs')){
         $link=$shell.CreateShortcut((Join-Path $folder 'CVR Link.lnk'))
-        $link.TargetPath=$Executable;$link.WorkingDirectory=Split-Path -Parent $Executable;$link.Description='CVRFlatscreen keys, mouse and HUD settings';$link.Save()
+        $link.TargetPath=$Executable;$link.WorkingDirectory=Split-Path -Parent $Executable;$link.IconLocation=$Executable+',0';$link.Description='CVRFlatscreen keys, mouse and HUD settings';$link.Save()
     }
     New-Item -Path $registration -Force | Out-Null
-    foreach($entry in @{DisplayName='CVR Link';DisplayVersion='0.2.9';Publisher='_mintyfishy';DisplayIcon=$Executable;UninstallString=('"'+$Executable+'" --uninstall');URLInfoAbout='https://github.com/geraldjove/CVR-Link'}.GetEnumerator()){
+    foreach($entry in @{DisplayName='CVR Link';DisplayVersion='0.2.18';Publisher='_mintyfishy';DisplayIcon=$Executable;UninstallString=('"'+$Executable+'" --uninstall');URLInfoAbout='https://github.com/geraldjove/CVR-Link'}.GetEnumerator()){
         New-ItemProperty -LiteralPath $registration -Name $entry.Key -Value $entry.Value -PropertyType String -Force | Out-Null
     }
 }
@@ -37,6 +37,7 @@ if($Mode -eq '--uninstall'){
 if(-not (Test-LinkInstalled $PSScriptRoot $StateRoot)){
     Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public static class CVRSetupWindow { [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr window, int mode); }'
     $form=[Windows.Forms.Form]::new();$form.Text='Install CVR Link';$form.ClientSize=[Drawing.Size]::new(610,425)
+    $form.Icon=[Drawing.Icon]::new((Join-Path $PSScriptRoot 'CVRLink.ico'))
     $form.StartPosition='CenterScreen';$form.FormBorderStyle='FixedDialog';$form.MaximizeBox=$false
     $form.BackColor=[Drawing.Color]::FromArgb(18,18,20);$form.ForeColor=[Drawing.Color]::White;$form.Font=[Drawing.Font]::new('Segoe UI',10)
     $form.Add_Shown({[void][CVRSetupWindow]::ShowWindow($form.Handle,5);$form.Activate()})

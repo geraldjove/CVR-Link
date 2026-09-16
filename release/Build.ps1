@@ -20,11 +20,12 @@ foreach($file in 'main.lua','Controls.lua','Inventory.lua','Ammo.lua','HUD.lua',
 foreach($file in 'Launcher.ps1','Setup.ps1'){Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $payload $file)}
 Copy-Item -LiteralPath (Join-Path $Root 'Control.ps1') -Destination (Join-Path $payload 'Control.ps1')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'UE4SS-LICENSE.txt') -Destination (Join-Path $payload 'UE4SS-LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'CVRLink.ico') -Destination (Join-Path $payload 'CVRLink.ico')
 $packed=Join-Path $out 'payload.zip';if(Test-Path -LiteralPath $packed){Remove-Item -LiteralPath $packed}
 [IO.Compression.ZipFile]::CreateFromDirectory($payload,$packed,[IO.Compression.CompressionLevel]::Optimal,$false)
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $automation=Get-ChildItem -LiteralPath (Join-Path $env:WINDIR 'Microsoft.NET\assembly\GAC_MSIL\System.Management.Automation') -Recurse -Filter System.Management.Automation.dll | Select-Object -First 1 -ExpandProperty FullName
 $exe=Join-Path $out 'CVRLink.exe'
-& $compiler /nologo /target:winexe /platform:x64 /optimize+ /warnaserror+ /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll "/r:$automation" "/resource:$packed,payload.zip" "/out:$exe" (Join-Path $PSScriptRoot 'Host.cs')
+& $compiler /nologo /target:winexe /platform:x64 /optimize+ /warnaserror+ /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Windows.Forms.dll "/r:$automation" "/resource:$packed,payload.zip" "/win32icon:$(Join-Path $PSScriptRoot 'CVRLink.ico')" "/out:$exe" (Join-Path $PSScriptRoot 'Host.cs')
 if($LASTEXITCODE -ne 0){throw 'CVR Link EXE build failed.'}
 Get-FileHash -LiteralPath $exe | Select-Object Hash

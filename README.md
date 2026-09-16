@@ -41,16 +41,22 @@ Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's new in CVR Link 0.2.9
+### What's new in CVR Link 0.2.18
 
-- **Stock ammo boxes:** aim at the box and press E to refill chest ammo while
-  keeping your gun in hand. Refills use the box's normal supply charges.
-- Full chest ammo uses no charge. The two-metre reach and wall checks remain.
-- Confirmed on Lumber; more stock and custom maps still need tests.
+- Guns follow the flatscreen player in the VR player's view. They no longer
+  stay behind or rise into the sky during movement.
+- Rifles and pistols aim fully up and down in hip fire and ADS. Pistols face
+  forward, and the hip-fire hold keeps the hands closer to the body.
+- Local gun jitter, failed weapon swaps and the green gameplay laser are fixed.
+- The app uses the new C$ Link icon. Loadout 0.2.4 adds the matching server-menu
+  image on Windows, Quest and server packages.
 
-Windows players need the new CVR Link app for this fix. The Windows, Quest,
-and server loadout files stay at 0.2.3. Use the updated desktop shortcut;
-opening an older EXE can put older mod files back.
+The rifle/pistol fixes are confirmed in a PC/Quest test of preview 0.2.17.
+The image passes asset/package checks; its live server-menu display still
+needs testing. More guns/maps and utility aim/flight checks remain open.
+
+Update the Windows app and in-game loadout. Quest players only need loadout
+0.2.4. Use the updated shortcut; opening an older EXE can restore older files.
 
 ### Also included
 

@@ -13,6 +13,9 @@ This downloads the official UE4SS 3.0.1 ZIP and checks its SHA-256 hash before
 using its two loader files and default settings. It does not bundle sample
 mods. Output: `.deps/release/CVRLink.exe`.
 
+The build embeds `release/CVRLink.ico`. The same icon appears on the app,
+setup window, settings window, and shortcuts.
+
 The EXE runs the packaged WinForms settings script inside a Windows PowerShell
 runspace. No terminal or separate PowerShell process opens during normal use.
 The game still needs UE4SS and the CVRFlatscreen loadout.

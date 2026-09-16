@@ -1,67 +1,23 @@
-# Future work
+# More play checks
 
-## Ammo boxes on stock maps
+Last checked: 16 September 2026, for app 0.2.18 and loadout 0.2.4.
+These are open checks, not promised release dates.
 
-- [x] Confirm E at the stock Lumber ammo box. Gerald confirmed refills in
-  preview 0.2.8. The log shows two spent charges and no charge for full chest.
-- [x] Capture the stock can blocking the refill point on Lumber. The 0.2.7
-  trace confirms the retry hits the same can despite its ignore list.
-- [x] Verify UE4SS 3.0.1 drops Lua array inputs, then replace the retry's ignore
-  list with native ignore-self using the can as context. Keep containment,
-  range, aiming, stock charges/cooldown, and a second check for real walls.
-  Preview 0.2.8 passes 534 Lua, 34 installer, native EXE, and native collision
-  checks. Lumber refill and full-chest behavior are confirmed in play. No
-  assets changed. App 0.2.9 is published with this fix.
-- [ ] Retest wider stock/custom maps, empty station, cooldown, walls,
-  and two-metre reach. Confirm the running EXE and runtime hashes first;
-  an older review EXE replaced the diagnostic once. Evidence: docs/modio.md.
+- Check the new server-menu image on Windows and Quest.
+- Try more rifles, pistols, scopes, maps and armor choices in mixed PC/Quest
+  matches. The latest weapon poses were confirmed with preview 0.2.17.
+- Check the pistol turn through vertical, recoil, utility up/down aim and
+  thrown grenade flight from both players' views.
+- Repeat join, death, respawn, leave and rejoin, including dedicated servers
+  and long sessions.
+- Try stock ammo refills on more maps, empty supplies, cooldown, walls and
+  the two-metre reach limit. Lumber refills are confirmed.
+- Check Quest popup links, Continue in VR, armor changes and menu reopening.
+- Test clean-PC setup, Windows permission prompts, repair and removal.
+  Code signing remains open.
+- Add keyboard reload for loose-round guns. Gadget hands remain hidden.
+- Assess separate local and remote weapon visuals if they are still needed.
 
-## Windows pointer and menus
-
-- [x] Keep the pointer for loadout/respawn and stop Tab stacking the pause menu.
-- [x] Add F9 to switch pointer control and mouse look, with a CVR Link key setting.
-  Gerald confirmed the local preview works correctly on 16 September 2026.
-- [ ] Check wider maps, repeated join/death/respawn, and mixed PC/Quest sessions.
-  The initial sky-facing angle was not captured before respawn; keep checking
-  first-join camera placement even though the recovery/menu fix is confirmed.
-
-## Quest welcome
-
-- [x] Confirm the 0.2.2 welcome and new game-menu UI appear on Quest.
-  Gerald confirmed this after reinstalling the mod on 16 September 2026.
-- [ ] Test Continue in VR, reopening with the menu button, all links, and
-  Respawn/Change Loadout on the current 0.2.3 Quest build.
-- [ ] Check that respawn and armor changes do not repeat the welcome, and a
-  new match shows it again.
-- The flatscreen player list was removed at Gerald's request on 16 September
-  2026. Check that only the CVRFlatscreen button remains after updating to 0.2.3.
-- [x] Resolve the single-player-only report. Gerald confirmed on 16 September
-  2026 that multiplayer access works again with the new build. The exact
-  original login cause was not established; the play result is confirmed.
-
-## Standalone Quest mouse and keyboard
-
-Implementation remains deferred since 15 September 2026. Quest support in 0.2.3
-is VR controller play. Gerald wants full VR on Quest 3 with both devices paired
-by Bluetooth. Local research records the engine
-input gates and the remaining unknown in the released game. No delivery date
-is set.
-
-**Stop rule:** if this needs permission or help from the Contractors VR
-developers, stop Quest 3 mouse/keyboard work. Do not seek developer approval
-or pursue a base-game change.
-
-- [ ] Test a Bluetooth keyboard and mouse paired directly to a Quest. Check
-  whether a local CVRFlatscreen loadout receives key presses/releases, mouse
-  buttons, and continuous relative mouse movement in the shipped game.
-- [x] Research the kit and official input docs. Normal Blueprint console writes
-  cannot enable the kit's read-only input settings. Retail settings and a
-  supported mod-only way to enable input remain unverified.
-- [ ] If inputs work, prototype movement, aiming, weapons, and menus in the
-  Quest loadout while keeping head tracking, the exact CVRFlatscreen gate, and
-  local opt-in. Apply the stop rule before taking this further.
-- [ ] Test respawn, exit, rejoin, and mixed PC/Quest play before claiming support.
-
-Quest can pair Bluetooth peripherals, but that alone does not establish
-gameplay input in Contractors. The Windows CVR Link runtime cannot run
-unchanged on standalone Quest.
+Quest mouse and keyboard work is deferred. Quest currently uses VR
+controllers. That work stops if it needs game-developer help, permission or
+a change to the base game.

@@ -13,6 +13,15 @@ end
 local function component()
     return object({RelativeLocation={X=1,Y=2,Z=3},RelativeRotation={Pitch=4,Yaw=5,Roll=6},
         tick=true,bUseWithoutTracking=false,bDisableLowLatencyUpdate=false,PendingTrackingMode=0,
+        bReplicateWithoutTracking=true,PlayerIndex=0,CurrentTrackingStatus=2,ControllerNetUpdateRate=100,
+        ReplicatedControllerTransform={Position={}},
+        Server_SendControllerTransform=function(self,packet)
+            -- 3.0.1 uses the outer table for nested Position, then leaves the
+            -- nested table on top while copying the following scalar fields.
+            self.packet={Position={X=packet.X or 0,Y=packet.Y or 0,Z=packet.Z or 0},
+                YawPitchINT=packet.Position.YawPitchINT or 0,RollSHORT=packet.Position.RollSHORT or 0}
+            self.sends=(self.sends or 0)+1
+        end,
         IsComponentTickEnabled=function(self) return self.tick end,
         SetComponentTickEnabled=function(self,value) self.tick=value end,
         SetTrackingMode=function(self,value) self.PendingTrackingMode=value end,
@@ -40,6 +49,7 @@ right.TryBeginInteractWith=function(_,button,candidate)
     held=candidate:GetOwner(); return true
 end
 local pointer=object({RootComponent=component(),bIsEnabled=false,
+    LaserMesh=object({bHiddenInGame=false,SetHiddenInGame=function(self,value) self.bHiddenInGame=value end}),
     StaticMesh=object({bVisible=true,SetVisibility=function(self,value) self.bVisible=value end}),
     WidgetInteraction=object({IsOverHitTestVisibleWidget=function() return over_ui end}),
     Enable=function(self) self.bIsEnabled=true end,Disable=function(self) self.bIsEnabled=false end,
@@ -71,11 +81,13 @@ pawn.CrouchCurve=object({
     Reverse=function() uncrouches=uncrouches+1; pawn.crouching=false end,
     PlayFromStart=function() crouch_position=0; error('crouch must resume at its current height') end,
     ReverseFromEnd=function() crouch_position=.4; error('stand must reverse from its current height') end})
-pawn.Mesh=object({bVisible=true,SetVisibility=function(self,value,propagate) assert(not propagate); self.bVisible=value end})
+pawn.Mesh=object({bVisible=true,SetVisibility=function(self,value,propagate) assert(not propagate); self.bVisible=value end,
+    K2_GetComponentLocation=function() return {X=0,Y=0,Z=0} end})
 local function gun(owner,x)
     local result=object({PrimGripComponent=object({}),GunData={bBoltAction=false},GetOwner=function() return owner end,
         GetCurrentClip=function(self) return self.clip end,
         GetInstigator=function() return nil end,K2_GetActorLocation=function() return {X=x,Y=0,Z=170} end,
+        GetTransform=function() return {Translation={X=x,Y=0,Z=170},Rotation={X=0,Y=0,Z=0,W=1},Scale3D={X=1,Y=1,Z=1}} end,
         GetActorAttachingTo=function() return nil end,
         ReloadWeapon=function() reloads=reloads+1 end,
         ChangeFiringMode=function() mode_changes=mode_changes+1 end,
@@ -84,6 +96,7 @@ local function gun(owner,x)
     result.PrimGripComponent.GetOwner=function() return result end
     result.PrimGripComponent.GetInteractable=function() return result end
     result.PrimGripComponent.K2_GetComponentLocation=result.K2_GetActorLocation
+    result.PrimGripComponent.K2_GetComponentToWorld=function() return result:GetTransform() end
     result.PrimGripComponent.IsInteracting=function() return held==result end
     result.PrimGripComponent.CanBeginInteraction=function() return owner==pawn end
     result.PrimGripComponent.DefaultInteractionButton=0
@@ -94,10 +107,25 @@ rifle.ForeGripComponent=object({K2_GetComponentLocation=function() return {X=55,
     IsInteracting=function() return left_held~=nil end})
 left.TryBeginInteractWith=function(_,button,grip) assert(button==0 and grip==rifle.ForeGripComponent); left_held=rifle end
 left.OnGripButtonReleased=function() left_held=nil end
+left.GetCurrentInteraction=function() return {InteractionComponent={Get=function() return left_held and left_held.ForeGripComponent end}} end
+rifle.ForeGripComponent.GetOwner=function() return rifle end
 rifle.K2_SetActorLocationAndRotation=function() return true end
 local function transform(p)
     return {Translation=p,Rotation={X=0,Y=0,Z=0,W=1},Scale3D={X=1,Y=1,Z=1}}
 end
+local function hand_transform(hand)
+    local t=transform(hand.position)
+    local r=hand.rotation
+    local sp,cp=math.sin(math.rad(r.Pitch)/2),math.cos(math.rad(r.Pitch)/2)
+    local sy,cy=math.sin(math.rad(r.Yaw)/2),math.cos(math.rad(r.Yaw)/2)
+    local sr,cr=math.sin(math.rad(r.Roll)/2),math.cos(math.rad(r.Roll)/2)
+    t.Rotation={X=cr*sp*sy-sr*cp*cy,Y=-cr*sp*cy-sr*cp*sy,Z=cr*cp*sy-sr*sp*cy,W=cr*cp*cy+sr*sp*sy}
+    return t
+end
+right.K2_GetComponentToWorld=function() return hand_transform(right) end
+left.K2_GetComponentToWorld=function() return hand_transform(left) end
+pawn.GetTransform=function() return transform({X=0,Y=0,Z=0}) end
+pawn.GetParentActor=function() return nil end
 rifle.GetTransform=function() return transform({X=100,Y=0,Z=170}) end
 rifle.GetGunFiringTransform=function() return transform({X=177,Y=0,Z=170}) end
 rifle.DefaultMuzzleRelativeTransform=transform({X=77,Y=0,Z=0})
@@ -108,7 +136,10 @@ local pc=object({IsInputKeyDown=function(_,key) return keys[key.KeyName] or fals
     GetInputAnalogKeyState=function() return wheel end})
 FName=function(value) return value end
 local center_hit
+local native_hand_poses
 StaticFindObject=function(value)
+    assert(value~='/Script/ZomboyVR.Default__ZomboyInteractionLibrary',
+        'FInteraction inputs crash UE4SS 3.0.1 while copying weak object properties')
     if value=='/Script/Engine.Default__KismetSystemLibrary' then return {LineTraceSingle=function(_,_,start,finish,channel,complex,ignore,debug,hit)
         if center_hit then
             assert(start.X==0 and start.Y==0 and start.Z==170 and finish.X==100000 and channel==2 and complex)
@@ -125,7 +156,26 @@ own.DefaultMuzzleRelativeTransform=rifle.DefaultMuzzleRelativeTransform
 own.K2_SetActorLocationAndRotation=rifle.K2_SetActorLocationAndRotation
 local sight=object({GetOwner=function() return rifle end,
     GetSightTransform=function() return transform({X=104,Y=0,Z=178}) end})
+local function indicator(grip,usage,score)
+    return object({HandUsage=usage,GetOwner=function() return grip:GetOwner() end,
+        GetRegisteredInteractionComponent=function() return grip end,
+        GetHandPosePriorityScore=function() return score end,
+        GetTargetControllerTransformWorldSpace=function(_,is_right,current)
+            assert(current.Rotation and current.Translation and current.Scale3D)
+            if native_hand_poses then return native_hand_poses(is_right) end
+            local missing=transform({X=0,Y=0,Z=0}); missing.Scale3D.X=0; return missing
+        end})
+end
+local primary_indicator=indicator(rifle.PrimGripComponent,2,1)
+local support_indicator=indicator(rifle.ForeGripComponent,0,1)
+local wrong_hand=indicator(rifle.PrimGripComponent,0,100)
+wrong_hand.GetTargetControllerTransformWorldSpace=function() error('wrong-hand indicator selected') end
+local foreign_indicator=indicator(foreign.PrimGripComponent,2,100)
+foreign_indicator.GetTargetControllerTransformWorldSpace=function() error('foreign indicator selected') end
+local lower_priority=indicator(rifle.PrimGripComponent,2,0)
+lower_priority.GetTargetControllerTransformWorldSpace=function() error('lower priority indicator selected') end
 FindAllOf=function(name)
+    if name=='ZomboyHandIndicatorComponent' then return {wrong_hand,foreign_indicator,lower_priority,primary_indicator,support_indicator} end
     if name=='ZomboyInteractableHolster' then return {} end
     if name=='ZomboyGunSightAttachmentActor' then return {sight} end
     if name=='ZomboyInteractionComponent' then return {foreign.PrimGripComponent,far.PrimGripComponent,own.PrimGripComponent} end
@@ -153,12 +203,17 @@ for _,missing in ipairs({'RootComponent','WidgetInteraction'}) do
     pointer[missing]=saved
 end
 check(controls.start(pawn)==true,'startup resumes when all control components are ready')
-check(right.tick and left.tick and right.bUseWithoutTracking and right.PendingTrackingMode==1,'controllers retain interaction ticks with animation tracking')
+check(right.tick and left.tick and right.bUseWithoutTracking and left.bUseWithoutTracking
+    and right.PendingTrackingMode==0 and left.PendingTrackingMode==0,
+    'untracked hands retain controller-driven grips for local and remote players')
 check(pointer.bIsEnabled,'existing pointer is enabled')
+check(not right.bReplicateWithoutTracking and right.PlayerIndex==-1 and right.CurrentTrackingStatus==0,
+    'native tracking cannot replace or broadcast the synthetic pose')
 check(not pointer.StaticMesh.bVisible,'decorative pointer rings are hidden without disabling interaction')
 input({LeftMouseButton=true})
 check(trigger==0 and presses==0,'activation does not fire a mouse button already held')
 input()
+check(pointer.LaserMesh.bHiddenInGame and pointer.bIsEnabled,'gameplay hides the laser mesh while keeping widget interaction available')
 check(right.position.X==35 and right.position.Y==16 and right.position.Z==150,'right hand uses camera-relative placement')
 check(pointer.RootComponent.position.X==5 and pointer.RootComponent.position.Y==0,'laser points along camera center')
 over_ui=true
@@ -171,12 +226,19 @@ held=rifle
 local output=transform({X=0,Y=0,Z=0})
 tick()
 check(left_held==rifle,'equipping a rifle automatically takes its native support grip')
-check(controls.apply_gun_pose(rifle,output) and output.Translation.X==23 and output.Translation.Y==16 and output.Translation.Z==156,'hip pose accounts for the actual muzzle offset')
+check(controls.apply_gun_pose(rifle,output) and output.Translation.X==35 and output.Translation.Y==16 and output.Translation.Z==156,'hip pose holds the primary grip at a natural distance')
+for _,length in ipairs({16,49,85}) do
+    rifle.DefaultMuzzleRelativeTransform.Translation.X=length
+    controls.apply_gun_pose(rifle,output)
+    check(math.abs(output.Translation.X-35)<.00001,'pistol/rifle barrel length does not extend the hip-fire grip: '..length)
+end
+rifle.DefaultMuzzleRelativeTransform.Translation.X=77
 check(not controls.apply_gun_pose(foreign,output),'weapon pose excludes other players and unheld guns')
 input({LeftMouseButton=true})
 check(trigger==1,'mouse press drives stock trigger')
 input({LeftMouseButton=true,Tab=true})
 check(pawn.InputMode==1 and trigger==0,'opening menu releases a held trigger')
+check(not pointer.LaserMesh.bHiddenInGame,'menu restores its visible laser')
 check(not controls.wants_look(pawn),'open menu freezes camera look')
 controls.tick(pawn,pc,camera,{Pitch=0,Yaw=0,Roll=0},12,-8)
 check(pointer.RootComponent.rotation.Yaw==12 and pointer.RootComponent.rotation.Pitch==-8,'menu mouse motion steers pointer in both axes')
@@ -249,7 +311,7 @@ now=now+.1; tick(); check(camera.FieldOfView>52 and camera.FieldOfView<80,'zoom 
 now=now+.101; tick()
 check(camera.FieldOfView==52 and not rifle.ads,'zoom fallback changes camera FOV without native sight aiming')
 controls.apply_gun_pose(rifle,output)
-check(output.Translation.X==23 and output.Translation.Y==16,'zoom fallback retains the hip weapon anchor')
+check(output.Translation.X==35 and output.Translation.Y==16,'zoom fallback retains the hip weapon anchor')
 input(); input({F6=true}); input()
 check(camera.FieldOfView==80,'releasing zoom restores the configured FOV')
 controls.configure(nil,120); tick()
@@ -264,8 +326,45 @@ local kicked=transform({X=998,Y=400,Z=200})
 kicked.Rotation={X=0,Y=-math.sin(math.rad(3)),Z=0,W=math.cos(math.rad(3))}
 check(controls.capture_recoil(rifle,original,kicked),'native recoil is captured for the owned held gun')
 controls.apply_gun_pose(rifle,output)
-check(math.abs(output.Rotation.Y-kicked.Rotation.Y)<.00001 and output.Translation.X==21,'native recoil rotation and displacement survive camera anchoring')
+check(math.abs(output.Rotation.Y-kicked.Rotation.Y)<.00001 and output.Translation.X==33,'native recoil rotation and displacement survive camera anchoring')
 check(not controls.capture_recoil(foreign,original,kicked),'recoil from another gun is excluded')
+local native_pass=transform({X=-500,Y=300,Z=900})
+check(controls.apply_local_grab(rifle,native_pass),'native gun update uses the local first-person pose')
+check(native_pass.Translation.X==output.Translation.X and native_pass.Translation.Y==output.Translation.Y
+    and native_pass.Translation.Z==output.Translation.Z and native_pass.Rotation.Y==output.Rotation.Y,
+    'native and character pose passes agree without losing or doubling recoil')
+check(not controls.apply_local_grab(foreign,native_pass),'local gun override cannot change another player weapon')
+-- A pistol's authored wrist angle differs from its barrel angle. Use each
+-- active native hand pose and send the base hold, leaving recoil to the gun.
+native_hand_poses=function(is_right)
+    local result=transform({X=rifle:GetTransform().Translation.X+8,Y=is_right and 2 or 4,Z=174})
+    result.Rotation={X=0,Y=-math.sin(math.rad(30)),Z=0,W=math.cos(math.rad(30))}
+    return result
+end
+tick()
+check(math.abs(right.rotation.Pitch-60)<.00001 and math.abs(left.rotation.Pitch-60)<.00001,
+    'both controller angles use the authored grip instead of the level camera angle')
+check(math.abs(right.position.X-43)<.00001 and math.abs(right.position.Y-18)<.00001
+    and math.abs(right.position.Z-160)<.00001,'right grip matches the base gun pose without adding its captured recoil')
+check(math.abs(left.position.Y-20)<.00001,'support hand uses its own native controller reference')
+for _,pitch in ipairs({-85,85}) do
+    controls.tick(pawn,pc,camera,{Pitch=pitch,Yaw=0,Roll=0})
+    -- Compare forward vectors because rotations past vertical have another Euler representation.
+    local p,y=math.rad(right.rotation.Pitch),math.rad(right.rotation.Yaw)
+    local wanted=math.rad(pitch+60)
+    check(math.abs(math.cos(p)*math.cos(y)-math.cos(wanted))<.00001
+        and math.abs(math.sin(p)-math.sin(wanted))<.00001,'native wrist correction keeps full view pitch '..pitch)
+end
+pawn.InputMode=1; tick()
+check(right.rotation.Pitch==0,'menus retain their normal controller and pointer placement')
+pawn.InputMode=0
+primary_indicator.invalid=true; lower_priority.invalid=true; tick()
+check(right.position.X==35 and right.rotation.Pitch==0,'destroyed indicators do not receive native pose calls')
+primary_indicator.invalid=false; lower_priority.invalid=false
+native_hand_poses=function() return transform({X=5000,Y=0,Z=0}) end; tick()
+check(right.position.X==35 and right.rotation.Pitch==0,'an unusable native pose cannot fling the controller away from the held gun')
+native_hand_poses=nil; tick()
+check(right.position.X==35 and right.rotation.Pitch==0,'missing native hand data keeps the existing safe placement')
 controls.capture_recoil(rifle,original,original)
 -- Intersect the corrected muzzle ray with the center target's plane.
 local function shot_at(x)
@@ -435,9 +534,9 @@ check(right.tick and left.tick,'utility holds retain native hand and pin interac
 check(controls.apply_gun_pose(utility,output) and output.Translation.X==35 and output.Translation.Y==12 and output.Translation.Z==160,
     'utility placement aligns the actual grip to a visible camera-relative anchor')
 check(right.position.X==45 and right.position.Y==12 and right.position.Z==160,'utility hand follows the same visible anchor')
-check(controls.apply_utility_grab(utility,output) and output.Translation.Z==160,'native utility grab uses the visible camera anchor')
-check(not controls.apply_utility_grab(rifle,output),'native utility hook excludes guns')
-check(not controls.apply_utility_grab(foreign,output),'native utility hook excludes other players and unheld items')
+check(controls.apply_local_grab(utility,output) and output.Translation.Z==160,'native utility grab uses the visible camera anchor')
+check(not controls.apply_local_grab(rifle,output),'native grab hook excludes a gun while a utility is held')
+check(not controls.apply_local_grab(foreign,output),'native utility hook excludes other players and unheld items')
 local grenade=gun(pawn,100); grenade.nongun=true
 grenade.GetTransform=utility.GetTransform; grenade.PrimGripComponent.K2_GetComponentToWorld=utility.PrimGripComponent.K2_GetComponentToWorld
 grenade.K2_SetActorLocationAndRotation=utility.K2_SetActorLocationAndRotation
@@ -446,7 +545,7 @@ utility.IsA=function(_,path) return path:find('ZomboyGrenadeBP',1,true)~=nil end
 utility.GrabHintGripIndicator=object({K2_GetComponentToWorld=function()
     local t=transform({X=100,Y=0,Z=170}); t.Rotation={X=0,Y=0,Z=-math.sqrt(.5),W=math.sqrt(.5)}; return t end})
 held=rifle; tick(); held=utility; tick()
-check(controls.apply_utility_grab(utility,output) and math.abs(output.Rotation.Z)>.5 and math.abs(output.Rotation.Y)>.4,
+check(controls.apply_local_grab(utility,output) and math.abs(output.Rotation.Z)>.5 and math.abs(output.Rotation.Y)>.4,
     'grenade orientation compensates for its authored hand pose instead of one shared yaw')
 check(not pawn.Mesh.bVisible,'gadget hides the local hand mesh without hiding the item')
 input({MiddleMouseButton=true}); check(controls.wants_look(pawn),'middle mouse with a grenade does not lock the camera')
@@ -484,6 +583,8 @@ check(right.RelativeRotation.Roll==6 and pointer.RootComponent.RelativeLocation.
 check(not pawn.sprinting and not pawn.crouching and trigger==0,'disable clears synthetic movement and trigger state')
 check(left_held==nil and camera.FieldOfView==90,'disable releases the synthetic support grip and restores FOV')
 check(pointer.StaticMesh.bVisible,'disable restores pointer ring visibility')
+check(not pointer.LaserMesh.bHiddenInGame and right.bReplicateWithoutTracking and right.PlayerIndex==0 and right.CurrentTrackingStatus==2,
+    'disable restores the laser, hardware index, tracking state, and stock replication')
 controls.start(pawn); held=utility; input(); controls.stop()
 check(pawn.Mesh.bVisible,'disable while holding a gadget restores the original hand visibility')
 local movement_x,movement_y=0,0
@@ -575,6 +676,51 @@ input({LeftMouseButton=true,F9=true})
 check(releases==old_releases+1 and trigger==0 and controls.wants_look(pawn),'leaving pointer mode releases its UI click without firing a held mouse button')
 over_ui=false; input(); input({F9=true}); controls.stop(); controls.start(pawn); input()
 check(controls.wants_look(pawn),'stop and pawn replacement clear manual pointer control')
+controls.stop()
+-- Send the final two-hand grip, not the native untracked fallback position.
+rifle.GunData.bBoltAction=false; held=rifle; keys={}; now=now+1
+controls.start(pawn)
+native_hand_poses=function(is_right)
+    local t=transform({X=108,Y=is_right and 2 or 4,Z=174})
+    t.Rotation={X=0,Y=-math.sin(math.rad(30)),Z=0,W=math.cos(math.rad(30))}
+    return t
+end
+tick()
+check(math.abs(right.packet.Position.X-right.position.X)<.00001
+    and math.abs(left.packet.Position.Z-left.position.Z)<.00001
+    and right.packet.Position.Y~=left.packet.Position.Y,'packets contain both final authored grips')
+local sends=right.sends; now=now+.005; tick()
+check(right.sends==sends,'pose sender respects the stock update rate')
+now=now+.006; tick()
+check(right.sends==sends+1,'pose sender resumes after its update interval')
+local function angles(packet)
+    return {Pitch=(packet.YawPitchINT%65536)*360/65536,Yaw=math.floor(packet.YawPitchINT/65536)*360/65536,Roll=packet.RollSHORT*360/65536}
+end
+for _,ads in ipairs({false,true}) do
+    keys={RightMouseButton=ads}; now=now+1; tick(); now=now+1; tick()
+    local previous
+    for _,pitch in ipairs({20,29,30,31,40,80,40,31,30,29,20,-85}) do
+        now=now+.02; controls.tick(pawn,pc,camera,{Pitch=pitch,Yaw=0,Roll=0})
+        local r=angles(right.packet)
+        check(math.abs((r.Pitch-(pitch+60)+180)%360-180)<.01,'packet retains full wrist pitch in '..(ads and 'ADS' or 'hip fire'))
+        if previous then
+            check(math.abs((r.Yaw-previous.Yaw+180)%360-180)<.01 and math.abs((r.Roll-previous.Roll+180)%360-180)<.01,
+                'vertical wrist crossing does not flip the remote yaw or roll')
+        end
+        previous=r
+    end
+end
+-- Mesh origin differs from capsule origin; an attached actor supplies rotation/scale.
+local parent=object({GetTransform=function()
+    local t=transform({X=900,Y=900,Z=900});t.Rotation={X=0,Y=0,Z=math.sqrt(.5),W=math.sqrt(.5)}
+    t.Scale3D={X=2,Y=2,Z=2};return t
+end})
+pawn.GetParentActor=function() return parent end
+pawn.Mesh.K2_GetComponentLocation=function() return {X=10,Y=20,Z=30} end
+now=now+.02; tick()
+local p=right.packet.Position
+check(math.abs(p.X-(right.position.Y-20)/2)<.00001 and math.abs(p.Y+(right.position.X-10)/2)<.00001
+    and math.abs(p.Z-(right.position.Z-30)/2)<.00001,'packets use native mesh origin with parent rotation and scale')
 controls.stop()
 print(count..' keyboard interaction checks passed; slide physics and sight alignment require live verification')
 os.clock=real_clock

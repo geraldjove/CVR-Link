@@ -62,14 +62,16 @@ local function activate(pawn)
         assert(not hmd:IsHeadMountedDisplayEnabled(), 'HMD disable readback failed')
     end
     local instance = gameplay:GetGameInstance(pawn)
-    set(instance, 'PlayMode', 1)
-    set(pawn, 'PlayMode', 1)
+    -- Native Pancake disables the gun's hand-follow modifier on every peer.
+    -- Our camera/input are independent; keep the replicated VR grip path.
+    set(instance, 'PlayMode', 0)
+    set(pawn, 'PlayMode', 0)
     set(pawn, 'bVRMode', false)
     set(camera, 'bAutoSetLockToHmd', false)
     set(camera, 'bLockToHmd', false)
     set(camera, 'bUsePawnControlRotation', false)
     activations = activations + 1
-    print('[Flatscreen] experimental pancake camera ON; original settings captured\n')
+    print('[Flatscreen] flatscreen camera ON; native VR grips retained; original settings captured\n')
 end
 local function tick(context)
     if failed then return end
@@ -216,18 +218,28 @@ RegisterBeginPlayPostHook(function(context)
         -- Blueprint hooks use argument two as the post callback; argument three is ignored.
         RegisterHook('/Game/Core/Player/CS_Character.CS_Character_C:ReceiveTick', tick)
         RegisterHook('/Script/ZomboyVR.ZomboyTransformModifier:ModifyInteractableTransform',function() end,capture_recoil)
+        RegisterHook('/Script/ZomboyVR.ZomboyMotionControllerComponent:GetControllerSwingVelocity',function() end,function(context,output)
+            if failed or not snapshot or lease_deadline<=os.time() then return end
+            local ok,reason=pcall(function() controls.apply_throw_velocity(context:get(),output:get()) end)
+            if not ok then
+                failed=true
+                pcall(restore,'throw velocity error')
+                report('ERROR|'..tostring(reason))
+                print('[Flatscreen] throw velocity error: '..tostring(reason)..'\n')
+            end
+        end)
         RegisterHook('/Script/ZomboyVR.ZomboyInteractableActor:ModifyGrabTransform',function() end,function(context,...)
             if failed or not snapshot or lease_deadline<=os.time() then return end
             local args=table.pack(...)
             local ok,reason=pcall(function()
                 assert(args.n==2,'unexpected native grab-transform arguments')
-                controls.apply_utility_grab(context:get(),args[1]:get())
+                controls.apply_local_grab(context:get(),args[1]:get())
             end)
             if not ok then
                 failed=true
-                pcall(restore,'utility pose error')
+                pcall(restore,'held item pose error')
                 report('ERROR|'..tostring(reason))
-                print('[Flatscreen] utility pose error: '..tostring(reason)..'\n')
+                print('[Flatscreen] held item pose error: '..tostring(reason)..'\n')
             end
         end)
         hooked = true

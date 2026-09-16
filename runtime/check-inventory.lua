@@ -32,14 +32,28 @@ local melee=slot('Melee')
 slot('Primary',foreign)
 FindAllOf=function(name) return name=='ZomboyInteractableHolster' and holsters or grips end
 local held,requests,grabs,before=nil,0,0,0
-local reject,delayed=false,false
+local reject,delayed,reject_release=false,false,false
+local attachment_intent,releases,unassigned_releases=nil,0,0
 local right={GetCurrentInteraction=function() return {InteractionComponent={Get=function() return held and held.grip end}} end,
     TryBeginInteractWith=function(_,button,grip) assert(button==0); grabs=grabs+1; held=grip:GetOwner(); held.attached=nil; return true end}
-local pc={RequestEndInteraction=function() held=nil; return true end,
+local pc={RequestEndInteraction=function()
+    releases=releases+1
+    if reject_release then return false end
+    if attachment_intent then
+        if not delayed then attachment_intent.item.attached=attachment_intent.holster end
+    else unassigned_releases=unassigned_releases+1 end
+    attachment_intent=nil; held=nil; return true
+end,
 RequestSetInteractableAttachment=function(_,item,root,socket,t)
     requests=requests+1; assert(socket=='None' and t.saved)
+    if not root then attachment_intent=nil; return true end
     if reject then return false end
-    if not delayed then for _,h in ipairs(holsters) do if h.RootComp==root then item.attached=h end end; held=nil end
+    for _,h in ipairs(holsters) do
+        if h.RootComp==root then
+            if held==item then attachment_intent={item=item,holster=h}
+            elseif not delayed then item.attached=h end
+        end
+    end
     return true
 end}
 local inventory=dofile('Inventory.lua')
@@ -55,6 +69,7 @@ local function select(key)
 end
 select('One'); check(held==primary and requests==0,'1 selects own primary without an initial drop')
 select('One'); check(held==alternate and primary.attached==home,'repeated 1 holsters primary and selects alternate')
+check(unassigned_releases==0,'the stock holster destination is set before releasing the gun')
 select('One'); check(held==primary,'primary cycle wraps')
 local started=now
 begin('Two'); check(held==primary and state.pending,'primary stays held while lowering')
@@ -79,7 +94,13 @@ previous=grabs; select('Three'); check(held==utility1 and grabs==previous,'3 kee
 select('Four'); check(held==utility2,'4 selects the second gadget')
 select('Five'); check(held==utility3,'5 selects the third gadget when present')
 select('V'); check(held==melee,'V selects melee')
+local old_releases=releases
 reject=true; select('One'); check(held==melee and state.message=='holster-rejected','rejected holster retains held item and does not grab target')
+check(releases==old_releases,'a rejected attachment never drops the item')
+reject=false; reject_release=true; previous=grabs; select('One')
+check(held==melee and grabs==previous and state.message=='release-rejected','a rejected release keeps the old item without taking the next one')
+check(not attachment_intent,'a rejected release cancels the pending holster destination')
+reject_release=false
 reject=false; delayed=true; previous=grabs; select('One')
 check(held==nil and grabs==previous and state.pending,'delayed holstering waits for readback before taking the next item')
 local actual_clock=os.clock; os.clock=function() return actual_clock()+2 end

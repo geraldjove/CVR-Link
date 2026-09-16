@@ -1,8 +1,17 @@
 local M={}
+local throw_velocity
 local inventory=require('Inventory')
 local function valid(o) return o and o:IsValid() end
 local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetAddress() end
 local function is_a(item,name) return valid(item) and item:IsA(StaticFindObject(name)) end
+function M.apply_throw_velocity(controller,output)
+    if not throw_velocity or not same(controller,throw_velocity.controller) then return end
+    -- The stock grenade multiplies controller swing by 1.6 in GetDropVelocity.
+    -- Supply it during native release so the stock drop request carries it online.
+    local v=throw_velocity.value
+    output.X,output.Y,output.Z=v.X/1.6,v.Y/1.6,v.Z/1.6
+    throw_velocity.used=true
+end
 function M.new() return {message='ready'} end
 function M.stop(action,pc,left,right)
     if action.pin and valid(action.pin) then pc:RequestEndInteraction(left,action.pin) end
@@ -53,13 +62,15 @@ function M.tick(action,down,allowed,pc,left,right,camera)
         if action.pin then pc:RequestEndInteraction(left,action.pin); action.pin=nil end
         action.message='grenade-ready'
         if not down then
-            -- Native drop starts the grenade's existing projectile/fuse behavior.
             local _,grip=inventory.held(right)
-            if pc:RequestEndInteraction(right,grip) then
-                local f=camera:GetForwardVector()
-                local velocity={X=f.X*1400,Y=f.Y*1400,Z=f.Z*1400+180}
-                item.ProjectileMovement.Velocity=velocity
-                action.message='grenade-thrown'
+            local f=camera:GetForwardVector()
+            local request={controller=right,value={X=f.X*1400,Y=f.Y*1400,Z=f.Z*1400+180}}
+            throw_velocity=request
+            local ok,released=pcall(function() return pc:RequestEndInteraction(right,grip) end)
+            throw_velocity=nil
+            if not ok then error(released) end
+            if released then
+                action.message=request.used and 'grenade-thrown' or 'throw-velocity-not-applied'
             else action.message='throw-rejected' end
             action.item=nil
         end

@@ -82,6 +82,9 @@ function Write-Atomic([string]$Path,[string]$Text){
  if(Test-Path -LiteralPath $Path){[IO.File]::Replace($temp,$Path,$Path+'.bak')}else{[IO.File]::Move($temp,$Path)}
 }
 $form=[Windows.Forms.Form]::new();$form.Text='CVR Link'
+$iconPath=Join-Path $PSScriptRoot 'CVRLink.ico'
+if(-not(Test-Path -LiteralPath $iconPath)){$iconPath=Join-Path $PSScriptRoot 'release/CVRLink.ico'}
+$form.Icon=[Drawing.Icon]::new($iconPath)
 $form.ClientSize=[Drawing.Size]::new(620,870);$form.MinimumSize=[Drawing.Size]::new(560,650)
 $form.StartPosition='CenterScreen';$form.BackColor=[Drawing.Color]::FromArgb(18,18,20)
 $form.ForeColor=[Drawing.Color]::White;$form.Font=[Drawing.Font]::new('Segoe UI',10)
