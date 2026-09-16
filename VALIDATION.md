@@ -48,4 +48,9 @@ The installed, player-confirmed 0.2.8 preview is kept in place during publicatio
 Mod.io 6383627 keeps Windows 8218361 (default), server 8218362, and Android
 8218363, all loadout 0.2.3. The ammo fix needs the Windows app update.
 
-Publication/download readback is pending.
+The anonymous EXE and SHA256SUMS downloads match the checked build. Tag
+`v0.2.9` points to `321f28daa80d1833f94f6a59be72902e29c95d66`.
+The public export's 534 Lua and 35 installer checks pass. All three mod.io
+ZIP downloads match, including exact entry names and unpacked PAK hashes.
+Windows remains the default. The page and all three package notes link to
+CVR Link 0.2.9; metadata, tags, and Android-filtered discovery pass readback.

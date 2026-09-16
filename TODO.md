@@ -11,7 +11,7 @@
   range, aiming, stock charges/cooldown, and a second check for real walls.
   Preview 0.2.8 passes 534 Lua, 34 installer, native EXE, and native collision
   checks. Lumber refill and full-chest behavior are confirmed in play. No
-  assets changed. App 0.2.9 publication is in progress.
+  assets changed. App 0.2.9 is published with this fix.
 - [ ] Retest wider stock/custom maps, empty station, cooldown, walls,
   and two-metre reach. Confirm the running EXE and runtime hashes first;
   an older review EXE replaced the diagnostic once. Evidence: docs/modio.md.
