@@ -46,4 +46,8 @@ CVR Link 0.2.18 EXE SHA-256:
 
 The player-confirmed 0.2.17 local install is kept during publication.
 The weapon fixes need the Windows app update; loadout 0.2.4 carries the image.
-Download verification and final platform file IDs will be recorded after upload.
+Anonymous GitHub EXE/checksum and all three mod.io ZIP downloads match the
+checked build, including exact ZIP paths and decompressed PAK hashes.
+Windows 8219418 is the default; server 8219419 and Android 8219420 are mapped
+in metadata. Android-filtered discovery passes. The page and all file notes
+link to app 0.2.18. The tag points to commit `332f289`.
