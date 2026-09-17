@@ -3,6 +3,7 @@ $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $out=Join-Path $Root '.deps\release';$payload=Join-Path $out 'payload'
 New-Item -ItemType Directory -Path $payload -Force | Out-Null
+$payload=(Resolve-Path -LiteralPath $payload).Path
 foreach($directory in 'loader','runtime'){New-Item -ItemType Directory -Path (Join-Path $payload $directory) -Force | Out-Null}
 $archive=Join-Path $out 'UE4SS_v3.0.1.zip'
 if(-not(Test-Path -LiteralPath $archive)){
@@ -22,7 +23,11 @@ Copy-Item -LiteralPath (Join-Path $Root 'Control.ps1') -Destination (Join-Path $
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'UE4SS-LICENSE.txt') -Destination (Join-Path $payload 'UE4SS-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'CVRLink.ico') -Destination (Join-Path $payload 'CVRLink.ico')
 $packed=Join-Path $out 'payload.zip';if(Test-Path -LiteralPath $packed){Remove-Item -LiteralPath $packed}
-[IO.Compression.ZipFile]::CreateFromDirectory($payload,$packed,[IO.Compression.CompressionLevel]::Optimal,$false)
+$zip=[IO.Compression.ZipFile]::Open($packed,[IO.Compression.ZipArchiveMode]::Create)
+try{foreach($file in Get-ChildItem -LiteralPath $payload -File -Recurse | Sort-Object FullName){
+    $entry=$file.FullName.Substring($payload.Length+1).Replace('\','/')
+    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip,$file.FullName,$entry,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
+}}finally{$zip.Dispose()}
 $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $automation=Get-ChildItem -LiteralPath (Join-Path $env:WINDIR 'Microsoft.NET\assembly\GAC_MSIL\System.Management.Automation') -Recurse -Filter System.Management.Automation.dll | Select-Object -First 1 -ExpandProperty FullName
 $exe=Join-Path $out 'CVRLink.exe'

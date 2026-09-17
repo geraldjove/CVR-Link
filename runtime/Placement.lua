@@ -59,7 +59,8 @@ function M.surface_rotation(normal,forward)
     local pitch=math.atan(x.Z,math.sqrt(x.X*x.X+x.Y*x.Y))
     return q,{Pitch=math.deg(pitch),Yaw=math.deg(math.atan(x.Y,x.X)),Roll=math.deg(math.atan(-y.Z,z.Z))}
 end
-function M.stop()
+function M.stop(unloaded)
+    if unloaded then state=nil; return end
     if not state then return end
     if valid(state.item) then state.item.PlaceDistance=state.distance end
     local a=state.arrow

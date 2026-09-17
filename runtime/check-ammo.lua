@@ -8,6 +8,8 @@ local function object(t)
     return t
 end
 local pawn,other,rifle_kind,pistol_kind=object({}),object({}),object({}),object({})
+rifle_kind.GetCDO=function() return object({IsA=function() return false end}) end
+pistol_kind.GetCDO=rifle_kind.GetCDO
 local function magazine(owner,kind,left,size)
     return object({left=left,size=size or 30,GetOwner=function() return owner end,GetClass=function() return kind end,
         IsA=function(_,path) return path=='/Script/ZomboyVR.ZomboyGunClip' end,
@@ -86,4 +88,68 @@ amount,status=ammo.refill(pawn,object({IsA=function() return false end}))
 check(amount==0 and status=='not-ammo-station','other actors cannot refill ammo')
 first.left=0; first.attached=nil; ammo.refill(pawn,station)
 check(first.left==0,'station does not refill a magazine dropped from the chest')
-print(count..' chest magazine and ammo station checks passed')
+-- Loose rounds use their stock pouch or whole-speedloader state.
+holsters={}
+local shell_kind,loader_kind=object({}),object({})
+local function reserve_item(kind,value)
+    local item,holster=chest(pawn,kind,0,7)
+    item.IsA=function(_,path) return kind==shell_kind and path=='/Script/ZomboyVR.ZomboyBulletPouchActor'
+        or kind==loader_kind and path:find('/Magnum_Loader.',1,true)~=nil end
+    item.BulletRemain=value; item.bBulletInstalled=value==0
+    item.OnRep_bBulletInstalled=function(self) self.visual_used=self.bBulletInstalled end
+    return item,holster
+end
+local pouch,pouch_holster=reserve_item(shell_kind,2)
+local spare=reserve_item(shell_kind,3)
+shell_kind.GetCDO=function() return object({BulletRemain=7,IsA=pouch.IsA}) end
+loader_kind.GetCDO=function() return object({IsA=function(_,path) return path:find('/Magnum_Loader.',1,true)~=nil end}) end
+loaded=magazine(nil,shell_kind,0,5)
+gun.GetDefaultClipClass=function() return shell_kind end
+gun.chamber=false; gun.spent=true
+local bolt_closes=0
+gun.GunBoltComponent=object({bolt=4,GetBoltState=function(self) return self.bolt end,
+    BoltTravelToClose=function(self,dt) assert(dt==0);bolt_closes=bolt_closes+1;self.bolt=3 end})
+gun.HaseUsedBulletInChamber=function(self) return self.spent end
+gun.EjectChamberBullet=function(self) self.spent=false end
+gun.AddBulletToChamber=function(self) if self.chamber or self.spent then return false end; self.chamber=true; return true end
+gun.AddBulletToClip=function() if loaded.left>=loaded.size then return false end; loaded.left=loaded.left+1; return true end
+ready,reserve,mags,status=ammo.counts(pawn,gun)
+check(ready==0 and reserve==5 and mags==2 and status=='SHELL POUCHES','shotgun HUD counts actual pouch shells')
+plan=ammo.plan(pawn,gun)
+check(plan.kind=='shell' and plan.delay==.5 and spare.BulletRemain==3,'shell starts a half-second delay without spending')
+local more
+ok,message,more=ammo.complete(plan)
+check(ok and more and gun.chamber and not gun.spent and spare.BulletRemain==2 and loaded.left==0,'first shell clears a spent case and chambers exactly one round')
+check(bolt_closes==1 and gun.GunBoltComponent.bolt==3,'first live shell closes a held-open bolt without moving another round')
+for i=1,4 do check(ammo.complete(ammo.plan(pawn,gun)),'remaining shell loads '..i) end
+check(loaded.left==4 and gun.chamber and pouch.BulletRemain==0 and spare.BulletRemain==0,'reload changes pouches without creating ammo')
+check(not ammo.plan(pawn,gun),'empty pouches stop the progressive reload')
+check(bolt_closes==1,'later tube shells do not repeat bolt closure')
+spare.BulletRemain=7
+plan=ammo.plan(pawn,gun); ok,message,more=ammo.complete(plan)
+check(ok and not more and loaded.left==5 and spare.BulletRemain==6,'last shell fills tube without overfilling or wasting a shell')
+check(not ammo.plan(pawn,gun),'full tube and chamber do not start another reload')
+loaded.left=0; plan=ammo.plan(pawn,gun); spare.attached=nil
+check(not ammo.complete(plan) and spare.BulletRemain==6,'detaching a pouch during the delay spends no shell')
+spare.attached=plan.holster
+holsters={}
+local loader=reserve_item(loader_kind,7)
+gun.GetDefaultClipClass=function() return loader_kind end
+loaded=magazine(nil,loader_kind,2,7); gun.chamber=false
+plan=ammo.plan(pawn,gun)
+check(plan.kind=='loader' and plan.delay==2.5 and not loader.bBulletInstalled,'five missing revolver rounds delay 2.5 seconds without spending the loader')
+ok=ammo.complete(plan)
+check(ok and loaded.left==7 and loader.bBulletInstalled and loader.visual_used,'revolver consumes one full loader only at completion')
+check(not ammo.plan(pawn,gun),'full revolver cannot spend another loader')
+loaded.left=0
+check(not ammo.plan(pawn,gun),'spent loader cannot reload an empty revolver')
+station.CurrentSupplyAmount=1
+station.OnGrabEvent=function(self,kind) assert(kind==loader_kind); self.CurrentSupplyAmount=self.CurrentSupplyAmount-1 end
+check(ammo.refill(pawn,station)==1 and not loader.bBulletInstalled and not loader.visual_used and station.CurrentSupplyAmount==0,
+    'stock station charge restores a spent speedloader and its visual state')
+plan=ammo.plan(pawn,gun)
+check(plan.delay==3.5,'empty seven-round cylinder waits 3.5 seconds')
+ammo.complete(plan)
+ready,reserve,mags,status=ammo.counts(pawn,gun)
+check(ready==7 and reserve==0 and mags==0 and status=='SPEEDLOADERS','revolver HUD counts spent loaders as empty')
+print(count..' ammo and station checks passed')

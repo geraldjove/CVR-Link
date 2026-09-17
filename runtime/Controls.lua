@@ -124,8 +124,107 @@ local function release_support()
     state.support_owned,state.support_gun,state.support_attempt=false,nil,nil
 end
 local function cancel_reload()
-    state.reload_deadline,state.reload_gun,state.reload_plan=nil,nil,nil
+    state.shell_raise=nil
+    state.reload_deadline,state.reload_gun,state.reload_plan,state.reload_started=nil,nil,nil,nil
 end
+-- Held-gun placement, scopes and obstruction.
+local function hip_reach(gun)
+    local category=valid(gun) and gun.Category:ToString()
+    return (category=='Carbine' or category=='Rifle' or category=='Sniper') and 20 or 35
+end
+local function restore_gun_drive()
+    local saved=state.gun_drive
+    if saved and valid(saved.gun) then saved.gun.bIsPhysicalInteractible=saved.physical end
+    state.gun_drive=nil
+end
+local function update_gun_drive(gun)
+    if not valid(gun) or not same(gun:GetOwner(),state.pawn) or M.ui_active(state.pawn) then gun=nil end
+    if state.gun_drive and not same(state.gun_drive.gun,gun) then restore_gun_drive() end
+    if valid(gun) and not state.gun_drive then
+        state.gun_drive={gun=gun,physical=gun.bIsPhysicalInteractible}
+        -- TickTransform then uses its stock direct-pose path, not a physics
+        -- handle which sags between our fixed flatscreen pose writes.
+        gun.bIsPhysicalInteractible=false
+    end
+end
+local function combat_status(gun)
+    if not valid(gun) then return '' end
+    local ok,result=pcall(function()
+        local clip=gun:GetCurrentClip()
+        return '|loaded='..tostring(valid(clip) and clip:GetRemainingRounds() or -1)
+            ..'|chamber='..tostring(gun:HasBulletInChamber())
+            ..'|spent='..tostring(gun:HaseUsedBulletInChamber())
+            ..'|bolt='..tostring(gun.GunBoltComponent:GetBoltState())
+            ..'|trigger='..tostring(state.firing)
+    end)
+    return ok and result or '|ammo_state=unavailable'
+end
+local function stop_scope()
+    if valid(state.scope_owned) and same(state.scope_owned:GetOwner(),state.scope_gun)
+        and same(state.scope_gun:GetOwner(),state.pawn) then
+        state.scope_owned:OnEndAimDownSight()
+    end
+    state.scope_owned,state.scope_gun=nil,nil
+end
+local function update_scope(gun)
+    local scope=state.sight_actor
+    local enabled=state.aiming and valid(scope)
+        and same(scope:GetOwner(),gun) and same(gun:GetOwner(),state.pawn)
+        and (scope:IsA('/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/ZomboyZoomSightBase.ZomboyZoomSightBase_C')
+            or scope:IsA('/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/ZomboyZoomSightBaseNew.ZomboyZoomSightBaseNew_C'))
+    if state.scope_owned and (not enabled or not same(state.scope_owned,scope)) then stop_scope() end
+    -- Native VR ADS geometry does not recognize the independent camera pose.
+    -- Keep the stock capture events; do not change recoil or native PlayMode.
+    if enabled and not scope.bEnablingScop then
+        scope:OnBeginAimDownSight()
+        state.scope_owned,state.scope_gun=scope,gun
+    end
+end
+local function apply_obstruction(gun,result,base,eye,up,right)
+    if not same(gun,holding()) or M.ui_active(state.pawn) then return end
+    local muzzle=rotate(result.Rotation,gun.DefaultMuzzleRelativeTransform.Translation)
+    local delta={}
+    for _,axis in ipairs({'X','Y','Z'}) do delta[axis]=result.Translation[axis]+muzzle[axis]-eye[axis] end
+    if state.wall_sample then
+        local target={X=eye.X+delta.X,Y=eye.Y+delta.Y,Z=eye.Z+delta.Z}
+        local hit,color={},{R=0,G=0,B=0,A=0}
+        local system=StaticFindObject('/Script/Engine.Default__KismetSystemLibrary')
+        -- Weapon channel, pawn world context + bIgnoreSelf. UE4SS drops Lua ignore arrays.
+        local blocked=system:SphereTraceSingle(state.pawn,eye,target,5,2,false,{},0,hit,true,color,color,0)
+        local amount=blocked and math.max(0,math.min(1,1-hit.Time)) or 0
+        local now=os.clock()
+        local previous=same(state.wall_gun,gun) and (state.wall_amount or 0) or 0
+        local elapsed=math.max(0,now-(state.wall_time or now))
+        -- Retract at once to stay on this side of cover; ease only the return.
+        state.wall_amount=math.max(amount,previous-elapsed/.15)
+        state.wall_gun,state.wall_time,state.wall_blocked=gun,now,blocked
+        if blocked then
+            -- Slide below the eye along cover, instead of drawing the barrel into it.
+            local normal=hit.Normal
+            local function tangent(axis,sign)
+                local dot=axis.X*normal.X+axis.Y*normal.Y+axis.Z*normal.Z
+                local v={X=sign*(axis.X-normal.X*dot),Y=sign*(axis.Y-normal.Y*dot),Z=sign*(axis.Z-normal.Z*dot)}
+                local length=math.sqrt(v.X*v.X+v.Y*v.Y+v.Z*v.Z)
+                if length<.1 then return end
+                for key,value in pairs(v) do v[key]=value/length end
+                return v
+            end
+            state.wall_slide=tangent(up,-1) or tangent(right,1)
+        end
+        local component=blocked and hit.Component and hit.Component:Get()
+        state.wall_hit=valid(component) and component:GetFName():ToString() or nil
+        if blocked then release_fire(); state.shell_raise=nil end
+    end
+    local amount=same(state.wall_gun,gun) and state.wall_amount or 0
+    local t=math.max(0,math.min(1,(amount-.25)/.5))
+    local lower=45*t*t*(3-2*t)
+    for _,axis in ipairs({'X','Y','Z'}) do
+        local shift=delta[axis]*amount-(state.wall_slide and state.wall_slide[axis] or 0)*lower
+        result.Translation[axis]=result.Translation[axis]-shift
+        base.Translation[axis]=base.Translation[axis]-shift
+    end
+end
+
 local function cycle_bolt(gun,blocked)
     if blocked or not same(state.bolt_gun,gun) then state.bolt_deadline=nil end
     state.bolt_gun=gun
@@ -147,16 +246,26 @@ local function cycle_bolt(gun,blocked)
     end
 end
 local function complete_reload(gun)
-    local completed,message=ammo.complete(state.reload_plan)
+    local completed,message,more=ammo.complete(state.reload_plan)
     state.reload_result=message
+    if completed and more then
+        local plan=ammo.plan(state.pawn,gun)
+        if plan then
+            state.reload_plan,state.reload_deadline=plan,os.clock()+plan.delay
+            return
+        end
+    end
     if completed then
-        state.reload_last_seconds=os.clock()-state.reload_deadline+1.5
+        state.reload_last_seconds=os.clock()-state.reload_started
         state.reloads_completed=(state.reloads_completed or 0)+1
     end
     cancel_reload()
 end
-function M.stop()
+function M.stop(unloaded)
+    if unloaded then placement.stop(true); state=nil; return end
     if not state then return end
+    restore_gun_drive()
+    stop_scope()
     cancel_reload()
     placement.stop()
     if state.pc then actions.stop(state.action,state.pc,state.left,state.right) end
@@ -300,7 +409,7 @@ end
 local function sight_reference(gun)
     for _,sight in ipairs(FindAllOf('ZomboyGunSightAttachmentActor') or {}) do
         if same(sight:GetOwner(),gun) then
-            return relative(transform(sight:GetSightTransform()),transform(gun:GetTransform()))
+            return relative(transform(sight:GetSightTransform()),transform(gun:GetTransform())),sight
         end
     end
     return transform(gun.DefaultSightRelativeTransform)
@@ -330,8 +439,10 @@ function M.wants_look(pawn)
     return not M.pointer_mode(pawn) and not (not M.ui_active(pawn) and state and valid(state.pc)
         and down_key(state.pc,'MiddleMouseButton') and placement.can_rotate(pawn,inventory.held(state.right)))
 end
+
 function M.tick(pawn,pc,camera,rotation,dx,dy)
     if not state then return end
+    state.ads_frame=nil
     state.pc=pc
     state.view=copy(rotation,{'Pitch','Yaw','Roll'})
     local pressed,down={},{}
@@ -364,8 +475,12 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     end
     local menu=M.ui_active(pawn)
     local gun=holding()
+    if menu or not same(state.wall_gun,gun) then
+        state.wall_gun,state.wall_amount,state.wall_time,state.wall_blocked,state.wall_slide=nil,0,nil,false,nil
+    end
     if state.reload_deadline then
-        if menu or not same(state.reload_gun,gun) then
+        if menu or not same(state.reload_gun,gun) or pressed.G or pressed.One or pressed.Two
+            or pressed.Three or pressed.Four or pressed.Five or pressed.V then
             cancel_reload()
         elseif os.clock()>=state.reload_deadline then
             complete_reload(gun)
@@ -390,7 +505,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     else placement.follow(pawn,hand_item,camera,rotation,down.MiddleMouseButton,
         vertical_rotation and 0 or dx,vertical_rotation and dy or 0) end
     local utility=valid(hand_item) and not valid(gun)
-    place(state.right,camera,(utility and 45 or 35)+actions.offset(state.action),
+    place(state.right,camera,(utility and 45 or hip_reach(gun))+actions.offset(state.action),
         utility and 12 or (aiming and 0 or 16),utility and -10 or (aiming and -6 or -20),rotation)
     place(pawn.LeftMotionController,camera,40,-16,-24,rotation)
     local pointer_rotation=rotation
@@ -403,8 +518,8 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     place(state.pointer.RootComponent,camera,5,0,0,pointer_rotation)
     if not state.pointer.bIsEnabled then state.pointer:Enable() end
     local over_ui=state.pointer_override~=false and state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget()
-    aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending and not state.reload_deadline
-    state.aiming=aiming and not state.zoom_mode and not state.reload_deadline
+    aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending and not state.reload_deadline and not state.shell_raise
+    state.aiming=aiming and not state.zoom_mode and not state.reload_deadline and not state.shell_raise
     local crouch_down=down.LeftControl or down.C
     local crouch=state.crouched and crouch_down and not menu or false
     if crouch_down and not state.crouch_down and not menu and os.clock()>=(state.next_crouch or 0) then crouch=true end
@@ -459,11 +574,26 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     state.sprint_blocked=running
     state.sprint_aim_blocked=running or now<(state.sprint_aim_ready_at or 0)
     if (menu or over_ui or state.sprint_blocked) and state.firing then release_fire() end
-    if pressed.LeftMouseButton then
+    local cancelling=menu or over_ui or state.sprint_blocked or state.wall_blocked or state.inventory.pending
+        or pressed.G or pressed.One or pressed.Two or pressed.Three or pressed.Four or pressed.Five or pressed.V or pressed.R
+    if state.shell_raise and (cancelling or not same(state.shell_raise.gun,gun)) then state.shell_raise=nil end
+    if pressed.LeftMouseButton and not cancelling and state.reload_plan and state.reload_plan.kind=='shell'
+        and same(state.reload_gun,gun) and gun:HasBulletInChamber() then
+        local lower=math.min(1,(now-state.reload_started)/.2)
+        cancel_reload()
+        state.shell_raise={gun=gun,ready=now+.25,lower=lower}
+    end
+    local trigger_request=false
+    local shell_fire=false
+    if state.shell_raise and now>=state.shell_raise.ready then
+        shell_fire=down.LeftMouseButton and gun:HasBulletInChamber()
+        state.shell_raise=nil
+    end
+    if pressed.LeftMouseButton or shell_fire then
         if over_ui then state.pointer:PressPointerKey(key('LeftMouseButton')); state.click=true
-        elseif not menu and not state.inventory.pending and not state.reload_deadline and not state.sprint_blocked then
+        elseif not cancelling and not state.reload_deadline and not state.shell_raise then
             if not actions.press(state.action,inventory.held(state.right),pc,state.left,state.right) then
-                state.right:OnTriggerAxisChanged(1); state.firing=true
+                trigger_request=true
             end
         end
     end
@@ -474,6 +604,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     local wheel=pc:GetInputAnalogKeyState(key('MouseWheelAxis'))
     if wheel~=0 and over_ui then state.pointer:ScrollWheel(wheel) end
     if pressed.G and not menu then
+        restore_gun_drive()
         placement.stop()
         cancel_reload()
         actions.stop(state.action,pc,state.left,state.right)
@@ -484,7 +615,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     end
     if pressed.E then
         local handled=false
-        if not menu and not state.inventory.pending and not state.reload_deadline then
+        if not menu and not state.inventory.pending and not state.reload_deadline and not state.shell_raise then
             handled=inventory.interact(state.inventory,state.right,camera)
         end
         if not handled and over_ui and not state.click then
@@ -502,30 +633,33 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
                 if valid(state.ads_gun) then state.ads_gun:SetPancakeAimingDownSight(false); state.ads_gun=nil end
             end); break end
         end
+        if state.inventory.pending then restore_gun_drive() end
         inventory.tick(state.inventory,state.right)
         gun=holding()
     end
     if menu then state.inventory.pending=nil end
-    if pressed.R and not menu and valid(gun) and not state.reload_deadline and not state.inventory.pending then
+    if pressed.R and not menu and valid(gun) and not state.reload_deadline and not state.shell_raise and not state.inventory.pending then
         local plan,message=ammo.plan(pawn,gun)
         state.reload_result=message
         if plan then
             release_fire()
-            state.reload_plan,state.reload_gun,state.reload_deadline=plan,gun,os.clock()+1.5
+            state.reload_started=os.clock()
+            state.reload_plan,state.reload_gun,state.reload_deadline=plan,gun,os.clock()+(plan.delay or 1.5)
         end
     end
+    update_gun_drive(gun)
     cycle_bolt(gun,menu or state.reload_deadline~=nil or state.inventory.pending~=nil)
     if not same(state.aim_weapon,gun) then
-        state.aim_weapon,state.ads_amount,state.ads_goal,state.sight=gun,0,nil,nil
+        state.aim_weapon,state.ads_amount,state.ads_goal,state.sight,state.sight_actor=gun,0,nil,nil,nil
     end
     aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending
-        and not state.reload_deadline and not state.sprint_aim_blocked
+        and not state.reload_deadline and not state.shell_raise and not state.sprint_aim_blocked
     state.aiming=aiming and not state.zoom_mode
     if valid(state.ads_gun) and (not same(state.ads_gun,gun) or not state.aiming) then
         state.ads_gun:SetPancakeAimingDownSight(false); state.ads_gun=nil
     end
     if state.aiming and not same(state.ads_gun,gun) then
-        state.sight=sight_reference(gun)
+        state.sight,state.sight_actor=sight_reference(gun)
         gun:SetPancakeAimingDownSight(true); state.ads_gun=gun
     end
     local goal=aiming and 1 or 0
@@ -536,18 +670,16 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     state.ads_amount=state.ads_from+(goal-state.ads_from)*progress*progress*(3-2*progress)
     camera:SetFieldOfView(field_of_view*(1-(state.zoom_mode and .35*state.ads_amount or 0)))
     placement.update()
+    if not menu and not state.zoom_mode and state.sight and state.ads_amount>0 then
+        -- ADS render rotation must not feed back into the next native gun pass.
+        -- Hip fire keeps its original live camera placement.
+        state.ads_frame={position=copy(camera:K2_GetComponentLocation(),{'X','Y','Z'}),
+            forward=copy(camera:GetForwardVector(),{'X','Y','Z'}),
+            right=copy(camera:GetRightVector(),{'X','Y','Z'}),up=copy(camera:GetUpVector(),{'X','Y','Z'})}
+    end
     local output={Rotation={},Translation={},Scale3D={}}
     state.aim_point=nil
-    if valid(gun) and not menu then
-        local origin,direction=camera:K2_GetComponentLocation(),camera:GetForwardVector()
-        local start={X=origin.X,Y=origin.Y,Z=origin.Z}
-        local finish={X=start.X+direction.X*100000,Y=start.Y+direction.Y*100000,Z=start.Z+direction.Z*100000}
-        local hit,color={},{R=0,G=0,B=0,A=0}
-        local system=StaticFindObject('/Script/Engine.Default__KismetSystemLibrary')
-        if system:LineTraceSingle(pawn,start,finish,2,true,{pawn,gun},0,hit,true,color,color,0) then
-            state.aim_point=copy(hit.ImpactPoint,{'X','Y','Z'})
-        end
-    end
+    -- Retain native barrel direction and fixed grip placement.
     local item=inventory.held(state.right)
     local gadget=valid(item) and (item:IsA('/Game/Core/VRInteractables/Throwables/Grenades/ZomboyGrenadeBP.ZomboyGrenadeBP_C')
         or item:IsA('/Game/Core/VRInteractables/Throwables/Grenades/Claymore/ZomboyClaymoreBP.ZomboyClaymoreBP_C'))
@@ -560,7 +692,10 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         local visible=state.hand_mesh.visible and not state.hands_hidden
         if state.hand_mesh.component.bVisible~=visible then state.hand_mesh.component:SetVisibility(visible,false) end
     end
+    state.wall_sample=true
     local applied,base=M.apply_gun_pose(item,output)
+    state.wall_sample=false
+    update_scope(gun)
     if applied then
         item:K2_SetActorLocationAndRotation(output.Translation,rotator(output.Rotation),false,{},true)
         if valid(gun) and not menu then align_grip(state.right,gun,true,base) end
@@ -576,6 +711,10 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
             end
             if not menu then align_grip(state.left,gun,false,base) end
         end
+    end
+    -- Check this frame's obstruction and place the gun before pressing the native trigger.
+    if trigger_request and not state.wall_blocked and not state.bolt_deadline then
+        state.right:OnTriggerAxisChanged(1); state.firing=true
     end
     actions.tick(state.action,down.LeftMouseButton,not menu and not over_ui,pc,state.left,state.right,camera)
     send_controller_poses()
@@ -604,6 +743,8 @@ function M.apply_gun_pose(gun,output)
     local camera=state.pawn.PlayerCamera
     local p=camera:K2_GetComponentLocation()
     local f,r,u=camera:GetForwardVector(),camera:GetRightVector(),camera:GetUpVector()
+    local frame=same(gun,state.aim_weapon) and not M.ui_active(state.pawn) and state.ads_frame
+    if frame then p,f,r,u=frame.position,frame.forward,frame.right,frame.up end
     local reference,forward,sideways,height,grip_turn,aim
     if not same(gun,holding()) then
         if not same(state.item_pose,gun) then
@@ -626,13 +767,13 @@ function M.apply_gun_pose(gun,output)
         end
     else
         reference=transform(gun.DefaultMuzzleRelativeTransform)
-        -- Keep the grip 35 cm ahead of the camera. A shared muzzle distance
+        -- Use the closer rifle reach (other guns stay at 35 cm). A shared muzzle distance
         -- stretches the arms on short guns and crowds the grip on long guns.
         local grip=relative(transform(gun.PrimGripComponent:K2_GetComponentToWorld()),transform(gun:GetTransform()))
         local q,muzzle=reference.Rotation,reference.Translation
         local barrel=rotate({X=-q.X,Y=-q.Y,Z=-q.Z,W=q.W},
             {X=muzzle.X-grip.Translation.X,Y=muzzle.Y-grip.Translation.Y,Z=muzzle.Z-grip.Translation.Z})
-        local hip_forward=35+math.max(0,barrel.X)
+        local hip_forward=hip_reach(gun)+math.max(0,barrel.X)
         aim=not state.zoom_mode and state.sight and state.ads_amount or 0
         if aim>0 then reference=blend_reference(reference,state.sight,aim) end
         forward,sideways,height=hip_forward*(1-aim)+18*aim,16*(1-aim),-14*(1-aim)
@@ -649,8 +790,18 @@ function M.apply_gun_pose(gun,output)
     end
     local target={X=p.X+f.X*forward+r.X*sideways+u.X*height,
         Y=p.Y+f.Y*forward+r.Y*sideways+u.Y*height,Z=p.Z+f.Z*forward+r.Z*sideways+u.Z*height}
-    local reload=state.reload_deadline and same(state.reload_gun,gun)
-        and math.sin(math.pi*math.max(0,math.min(1,1-(state.reload_deadline-os.clock())/1.5))) or 0
+    local reload=0
+    if state.reload_deadline and same(state.reload_gun,gun) then
+        if state.reload_plan.kind=='shell' then
+            reload=math.min(1,(os.clock()-state.reload_started)/.2)
+        else
+            reload=math.sin(math.pi*math.max(0,math.min(1,1-(state.reload_deadline-os.clock())/(state.reload_plan.delay or 1.5))))
+        end
+    end
+    if state.shell_raise and same(state.shell_raise.gun,gun) then
+        local t=math.max(0,math.min(1,1-(state.shell_raise.ready-os.clock())/.25))
+        reload=state.shell_raise.lower*(1-t*t*(3-2*t))
+    end
     local switching=inventory.lowering(state.inventory,gun)
     local sprint=aim~=nil and (state.sprint_amount or 0) or 0
     if reload>0 or switching>0 or sprint>0 then
@@ -664,6 +815,7 @@ function M.apply_gun_pose(gun,output)
     local pitch,yaw=math.rad(state.view.Pitch)*.5,math.rad(state.view.Yaw)*.5
     local sp,cp,sy,cy=math.sin(pitch),math.cos(pitch),math.sin(yaw),math.cos(yaw)
     local view={X=sp*sy,Y=-sp*cy,Z=cp*sy,W=cp*cy}
+    local camera_view=view
     if aim and aim<1 and state.aim_point then
         local point=state.aim_point
         local x,y,z=point.X-target.X,point.Y-target.Y,point.Z-target.Z
@@ -691,6 +843,28 @@ function M.apply_gun_pose(gun,output)
         result.Translation.Y=result.Translation.Y+recoil.Y
         result.Translation.Z=result.Translation.Z+recoil.Z
         result.Rotation=multiply(result.Rotation,state.recoil.Rotation)
+        if aim and aim>0 then
+            -- Keep native recoil angles and recovery. Pivot ADS recoil around
+            -- the eye behind the actual sight, so its lens cannot jump into
+            -- the fixed camera or leave the sight line. Hip kickback stays native.
+            local relief=rotate(state.sight.Rotation,{X=18,Y=0,Z=0})
+            local eye={X=state.sight.Translation.X-relief.X,
+                Y=state.sight.Translation.Y-relief.Y,Z=state.sight.Translation.Z-relief.Z}
+            local before,after=rotate(base.Rotation,eye),rotate(result.Rotation,eye)
+            for _,axis in ipairs({'X','Y','Z'}) do
+                result.Translation[axis]=result.Translation[axis]+aim*
+                    (base.Translation[axis]+before[axis]-result.Translation[axis]-after[axis])
+            end
+        end
+    end
+    apply_obstruction(gun,result,base,p,u,r)
+    if frame and aim and aim>0 then
+        -- Follow native sight recoil without changing mouse aim or the horizon.
+        local sight_view=multiply(result.Rotation,state.sight.Rotation)
+        local rotation=rotator(blend_reference({Rotation=camera_view,Translation=p},
+            {Rotation=sight_view,Translation=p},aim*(gun.Category:ToString()=='Pistol' and .35 or 1)).Rotation)
+        rotation.Roll=0
+        camera:K2_SetWorldRotation(rotation,false,{},true)
     end
     for field,axes in pairs({Rotation={'X','Y','Z','W'},Translation={'X','Y','Z'},Scale3D={'X','Y','Z'}}) do
         for _,axis in ipairs(axes) do output[field][axis]=result[field][axis] end
@@ -701,6 +875,18 @@ end
 function M.status()
     if not state then return '' end
     local gun=holding()
+    -- Read-only scope diagnosis. Custom sights may not have the stock fields.
+    local scope_status=''
+    if valid(state.sight_actor) and same(state.sight_actor:GetOwner(),gun) then
+        scope_status='|sight='..state.sight_actor:GetFName():ToString()
+        local ok,details=pcall(function()
+            local scope=state.sight_actor
+            return '|native_ads='..tostring(gun:GetIsAimDownSight())
+                ..'|scope_enabled='..tostring(scope.bEnablingScop)
+                ..'|scope_capture='..tostring(valid(scope.CachedSceneCapture) or false)
+        end)
+        scope_status=scope_status..(ok and details or '|scope_state=unavailable')
+    end
     return '|menu='..tostring(state.pawn.InputMode)..'|forced_ui='..tostring(state.pawn.bForcedUIInput)
         ..'|stationary_ui='..tostring(stationary_open(state.pawn))..'|pointer_mode='..tostring(M.pointer_mode(state.pawn))
         ..'|gun='..(valid(gun) and gun:GetFName():ToString() or 'none')
@@ -720,6 +906,10 @@ function M.status()
         ..'|crouch_requested='..tostring(state.crouched or false)
         ..'|inventory='..state.inventory.message
         ..'|interaction='..tostring(state.inventory.interaction or 'ready')
+        ..'|wall_blocked='..tostring(state.wall_blocked or false)
+        ..'|wall_pullback='..tostring(state.wall_amount or 0)
+        ..'|wall_hit='..tostring(state.wall_hit or 'none')
+        ..'|shell_raise='..tostring(state.shell_raise~=nil)
         ..'|reload_pending='..tostring(state.reload_deadline~=nil)
         ..'|bolt_pending='..tostring(state.bolt_deadline~=nil)
         ..'|bolts_cycled='..tostring(state.bolts_cycled or 0)
@@ -729,6 +919,7 @@ function M.status()
         ..'|item_action='..state.action.message
         ..'|local_grab_writes='..tostring(state.local_grab_writes or 0)
         ..'|item='..(valid(inventory.held(state.right)) and inventory.held(state.right):GetFName():ToString() or 'none')
-        ..placement.status()
+        ..placement.status()..scope_status..combat_status(gun)
 end
+
 return M

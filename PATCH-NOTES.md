@@ -1,51 +1,42 @@
-# CVR Link 0.2.18 - Better weapon poses and new artwork
+# CVR Link 0.2.32 - Smoother guns, scopes and reloads
 
-16 September 2026 | CVRFlatscreen loadout 0.2.4
+17 September 2026 | CVRFlatscreen loadout 0.2.5
 
-## What's fixed
+- Shotguns fire again after reloading. Once a shell is ready, press and hold
+  fire to stop reloading, raise the gun and shoot after a short 0.25-second pause.
+- Magnified scopes show their view again while aiming.
+- Rifles sit closer to the body, and the idle gun jitter is fixed.
+- Pistol aiming has less camera kick. Guns keep their normal recoil.
+- Hip aim stays steady when you look between near and far objects.
+- Guns pull back near walls and move below the camera at very close range.
+  A blocked shot is not queued. Move clear and press fire again.
+- R uses real chest ammo. Shotguns load one shell every 0.5 seconds;
+  stock Magnum reloads use a speedloader. Empty reserves need an ammo station.
+- The larger CVR Link pause page replaces the welcome popup. It stays closed
+  when you join. Open it with F8 or the CVR Link game-menu button.
+- This update also includes the match-start crash fix and better HUD item
+  names, icons and ammo counts.
 
-- Other VR players now see the flatscreen player's gun follow them when they
-  walk, run and turn. It no longer stays behind or climbs into the sky.
-- Rifles and pistols use the full up/down aim range in hip fire and ADS.
-- Pistols face the right way. Hip-fire hands sit closer to the body.
-- The local gun no longer jitters, and weapon and utility swaps work again.
-- The green menu laser stays hidden during play. F9 still brings back the
-  pointer when you need it.
+Shotgun firing, magnified scopes, the closer view, pistol camera movement and
+idle jitter were confirmed in local previews. Close-wall corners, wider gun
+and map coverage, VR peers, repeated travel and Quest pause-page play checks
+still need testing. This release covers the standard CVRFlatscreen loadout.
 
-The latest rifle and pistol poses were confirmed in a PC/Quest play test
-using preview 0.2.17. More guns, maps and long sessions still need tests.
-
-## New artwork
-
-- The Windows app, setup window and shortcuts now use the C$ Link icon.
-- The loadout now includes the matching image for the server loadout menu.
-  Windows, Quest and server files are updated. The saved image and packages
-  pass checks; its live server-menu display still needs a play check.
-
-## How to update
+## Update
 
 **Windows:** close Contractors and CVR Link. Download
-[CVR Link 0.2.18](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.18),
-open it, and click **Install CVR Link**. Update **CVRFlatscreen** in the game's
-mod browser, then restart. Use the updated desktop shortcut next time.
-Your saved keys and settings stay in place.
+[CVR Link 0.2.32](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.32),
+open it and click **Install CVR Link**. Update **CVRFlatscreen** to **0.2.5**
+in the game, then restart. Your keys and settings stay in place.
+Use the updated shortcut: opening an old EXE can restore older files.
 
-**Quest:** update CVRFlatscreen to **0.2.4** and restart Contractors. Keep
-using your normal VR controllers. You do not need the Windows app on Quest.
+**Quest:** update CVRFlatscreen to **0.2.5** and restart Contractors.
+Keep your normal VR controllers. The Windows app is not needed on Quest.
 
-The weapon fixes need the Windows app update. Opening an older EXE can put
-older files back, so use the new copy after setup.
-
-## Still included
-
-Normal recoil, stock ammo refills with E, F9 pointer control, the Tab menu
-fix, FOV from 80 to 120, automatic bolt cycling, and the Quest welcome remain.
-The flatscreen player list stays removed. Matches still need the exact
-CVRFlatscreen loadout and a running CVR Link app for mouse and keyboard play.
-
-Utility up/down aim and grenade flight from the Quest view still need tests.
-Gadget hands stay hidden. Loose-round guns still lack keyboard reload.
+Matches still need the exact CVRFlatscreen loadout and a running CVR Link app.
+Experimental start also allows the local HQ. FOV, F9 pointer control, automatic
+bolt cycling, ammo stations and the C$ Link artwork remain.
 
 Author: **_mintyfishy** | [Discord](https://discord.gg/432n3NTq9f) |
-[CVR Link](https://github.com/geraldjove/CVR-Link) |
+[Source and help](https://github.com/geraldjove/CVR-Link) |
 [CVRFlatscreen](https://mod.io/g/contractors/m/cvrflatscreen)

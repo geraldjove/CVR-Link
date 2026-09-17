@@ -5,8 +5,8 @@ local M={}
 local widget,last_update,last_item
 local function valid(o) return o and o:IsValid() end
 local function show(o,visible) o:SetVisibility(visible and 3 or 1) end
-function M.stop()
-    if valid(widget) then show(widget,false); widget:RemoveFromParent() end
+function M.stop(unloaded)
+    if not unloaded and valid(widget) then show(widget,false); widget:RemoveFromParent() end
     widget,last_update,last_item=nil,nil,nil
 end
 function M.update(next_widget,pawn,settings,aiming,reloading,ui_active)
@@ -65,9 +65,9 @@ function M.update(next_widget,pawn,settings,aiming,reloading,ui_active)
     end
     M.stage='read ammo counts'
     if valid(gun) then
-        local loaded,reserve,magazines=ammo.counts(pawn,gun)
+        local loaded,reserve,magazines,label=ammo.counts(pawn,gun)
         widget.AmmoText:SetText(FText(tostring(loaded)..' / '..tostring(reserve)))
-        widget.ReserveText:SetText(FText(tostring(magazines)..' CHEST MAGS'))
+        widget.ReserveText:SetText(FText(tostring(magazines)..' '..(label or 'CHEST MAGS')))
         widget.ActionText:SetText(FText(reloading and 'RELOADING' or reserve==0 and 'NO SPARE AMMO' or ''))
     else
         widget.AmmoText:SetText(FText('--'))

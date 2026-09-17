@@ -71,4 +71,9 @@ check(arrow.RelativeLocation.X==1 and arrow.RelativeRotation.Pitch==-90,'stop re
 placement.follow(pawn,item,camera,{Pitch=0,Yaw=0,Roll=0}); pawn.InputMode=1
 placement.follow(pawn,item,camera,{Pitch=0,Yaw=0,Roll=0})
 check(item.PlaceDistance==30,'opening menu restores native placement control')
+pawn.InputMode=0; placement.follow(pawn,item,camera,{Pitch=0,Yaw=0,Roll=0})
+item.IsValid=function() error('old Claymore touched after world unload') end
+arrow.IsValid=function() error('old arrow touched after world unload') end
+placement.stop(true)
+check(placement.orientation(item)==nil,'world unload forgets Claymore references without touching freed objects')
 print(count..' Claymore placement checks passed; native surface clearance needs game verification')

@@ -28,56 +28,32 @@ Normal VR start uses a connected headset, SteamVR, and Virtual Desktop.
 For a monitor without a headset, use **Experimental start** below.
 
 Keep CVR Link open. Start Contractors in VR and enter a room with the
-**CVRFlatscreen** loadout. Choose **Play in Flatscreen** in its popup. Switch
+**CVRFlatscreen** loadout. Open **CVR Link** from the game menu or press **F8**, then choose **Play in Flatscreen**. Switch
 Virtual Desktop to **Desktop view**, then click the game on the flat screen.
 You should see the screen's edges. Use **Play in VR** to return to headset play.
 
-Open the mode popup at any time with **F8**, or the **CVRFlatscreen** button in
-the game menu. VR players can find the app download and Discord links there.
+Open the CVR Link pause page with **F8** or its game-menu button.
+It stays closed when you join. VR players can find downloads and Discord there.
 
-**Loadout release:** 0.2.3 test update for Windows, server, and Quest on
+**Loadout release:** 0.2.5 test update for Windows, server, and Quest on
 [CVRFlatscreen on mod.io](https://mod.io/g/contractors/m/cvrflatscreen).
 Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's new in CVR Link 0.2.18
+### What's new in CVR Link 0.2.32
 
-- Guns follow the flatscreen player in the VR player's view. They no longer
-  stay behind or rise into the sky during movement.
-- Rifles and pistols aim fully up and down in hip fire and ADS. Pistols face
-  forward, and the hip-fire hold keeps the hands closer to the body.
-- Local gun jitter, failed weapon swaps and the green gameplay laser are fixed.
-- The app uses the new C$ Link icon. Loadout 0.2.4 adds the matching server-menu
-  image on Windows, Quest and server packages.
+Shotguns fire after reload, and magnified scopes work again. Rifles sit closer
+to the body, idle gun jitter is fixed, and pistol aiming has less camera kick.
+The larger CVR Link pause page replaces the welcome popup.
 
-The rifle/pistol fixes are confirmed in a PC/Quest test of preview 0.2.17.
-The image passes asset/package checks; its live server-menu display still
-needs testing. More guns/maps and utility aim/flight checks remain open.
+Shotgun reloads can stop once a shell is ready: press and hold fire to raise
+the gun and shoot after 0.25 seconds. R uses real chest ammo. Ammo stations
+refill your empty reserves. See the [patch notes](PATCH-NOTES.md).
 
-Update the Windows app and in-game loadout. Quest players only need loadout
-0.2.4. Use the updated shortcut; opening an older EXE can restore older files.
-
-### Also included
-
-- **F9:** switch between mouse look and the menu pointer. If a menu is outside
-  your view, press F9, look toward it, then press F9 again to click.
-- **Menu fix:** Tab keeps the pause menu from covering loadout or respawn.
-  Those screens keep their pointer. Change F9 in CVR Link's key settings.
-- **FOV:** choose 80 to 120 degrees in UI Settings. The default is 80.
-  Click Save settings to change it while playing.
-- **Automatic bolts:** bolt-action guns cycle after a shot. Release fire and
-  click again for the next shot. R still reloads.
-- **Simpler menu:** the flatscreen player list is removed on Windows and
-  Quest. The CVRFlatscreen button and popup still show downloads and help.
-
-FOV and bolt cycling are confirmed in play. More guns and maps need tests.
-The Quest welcome stays in place. Multiplayer access is working again in
-the new build, confirmed by the player.
-
-Windows players should update both CVR Link and the in-game loadout. Close the
-game and app, open the new EXE, and click Install. Use the updated desktop
-shortcut next time. Your saved keys and settings stay in place.
+Update both the Windows app and in-game loadout. Quest players only need
+loadout 0.2.5. These gun fixes were confirmed in local previews; wider guns,
+wall corners, Quest pause-page use and VR peers still need play checks.
 
 ### Experimental start without a headset
 
@@ -94,8 +70,8 @@ how a running game was started.
 ### Quest crossplay preview
 
 Update the loadout in Contractors and restart the game. Quest players keep
-their normal VR controllers and do not need CVR Link. The welcome opens once
-per match; the game-menu button opens it again. Flatscreen play needs the
+their normal VR controllers and do not need CVR Link. The CVR Link game-menu button opens
+an information page with Continue in VR and help links. It does not open on join. Flatscreen play needs the
 Windows PCVR game and CVR Link on a PC. More maps, armor choices, and mixed
 PC/Quest matches still need tests. Custom maps must support Quest too.
 
@@ -114,7 +90,9 @@ stay fixed. See **[all default controls](KEYBINDS.md)**.
 ## What flatscreen adds
 
 Mouse look keeps the view level. Guns follow your aim and keep normal recoil.
-The crosshair stays in the center. Close walls push the gun back. Aiming eases
+The crosshair stays in the center. Hip aim stays steady across near and far
+objects. Close walls push the gun back and down; blocked shots need a fresh
+click after you move clear. Aiming eases
 into the sights; F6 lets you use camera zoom instead.
 
 Hold **Shift + forward** to sprint and lower the gun. Release either key to
@@ -124,8 +102,9 @@ pressed during sprint are not queued; click again afterward.
 
 Bolt-action guns cycle after a short pause. They use real magazine rounds.
 
-Reloads lower the gun for 1.5 seconds and use one matching chest magazine. When
-your spare rounds run out, use an ammo station. Gear moves down and up when you
+Magazine reloads take 1.5 seconds and use a matching chest magazine. Shotguns
+load one shell every 0.5 seconds. The stock Magnum spends a speedloader after
+0.5 seconds per missing round. When spare rounds run out, use an ammo station. Gear moves down and up when you
 swap. Main gun and sidearm swaps wait one second in both directions.
 
 The HUD shows loaded rounds, spare chest rounds, your pose, and the held item's
@@ -134,7 +113,7 @@ icon and name. It hides in VR and menus. Aiming hides the crosshair.
 ## Stop or remove it
 
 Press **F7**, or close CVR Link. Flatscreen stops within about two seconds.
-Turning the link back on needs a new Flatscreen choice in the game popup for
+Turning the link back on needs a new Flatscreen choice in the CVR Link pause page for
 normal mode. Experimental resumes only in the local HQ or an allowed match.
 
 To remove the game mod, close Contractors and CVR Link. Open Windows **Settings
@@ -148,8 +127,7 @@ The app and install backups are in `%LOCALAPPDATA%\CVRLink`.
 ## Early release limits
 
 More guns, maps, respawns, long sessions, and mixed VR/flatscreen matches still
-need play tests. Gadget hands are hidden for now. Guns with loose-round pouches
-do not yet have keyboard reload support. Quest and Windows server packages
+need play tests. Gadget hands are hidden for now. Quest and Windows server packages
 still need live multiplayer tests. A fresh
 in-game download also needs a play check without the local development copy.
 
@@ -175,8 +153,8 @@ Its MIT notice is in [UE4SS-LICENSE.txt](release/UE4SS-LICENSE.txt).
 No game files are included in this repo.
 
 For source checks and building the EXE, see [BUILD.md](BUILD.md).
-Read [0.2.4 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
+Read [0.2.32 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
 
-Last verified: **2026-09-16**. Sources: source checks, native desktop and editor
+Last verified: **2026-09-17**. Sources: source checks, native desktop and editor
 checks, mod.io download checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)
 for what was checked and what still needs a live test.

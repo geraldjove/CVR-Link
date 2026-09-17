@@ -8,7 +8,7 @@ local menu = require('Menu')
 local hud = require('HUD')
 local snapshot, hooked, last_poll, last_report = nil, false, -1, 0
 local failed = false
-local active_pawn, view, original_pose
+local active_pawn, view, original_pose, active_world
 local previous_hmd
 local headset_free,denied_world,denied_since,returned_world
 local lease_deadline, read_misses, activations, restorations = 0, 0, 0, 0
@@ -20,16 +20,21 @@ local function report(message)
     local file = io.open(folder .. 'status.txt', 'w')
     if file then file:write(tostring(os.time()), '|', message, '\n'); file:close() end
 end
-local function restore(reason)
-    hud.stop()
+local function restore(reason,unloaded_pawn)
+    hud.stop(unloaded_pawn~=nil)
     if not snapshot then return end
-    local controls_ok, controls_error = pcall(controls.stop)
-    if original_pose and valid(original_pose.camera) then
+    local controls_ok, controls_error = pcall(controls.stop,unloaded_pawn~=nil)
+    if not unloaded_pawn and original_pose and valid(original_pose.camera) then
         original_pose.camera:K2_SetRelativeLocationAndRotation(original_pose.position, original_pose.rotation, false, {}, true)
     end
+    local instance=unloaded_pawn and gameplay:GetGameInstance(unloaded_pawn)
     for i = #snapshot, 1, -1 do
         local item = snapshot[i]
-        if valid(item[1]) then item[1][item[2]] = item[3] end
+        if unloaded_pawn then
+            -- GetAddress reads the Lua wrapper only. Never call IsValid on the
+            -- old world's objects: UE4SS 3.0.1 dereferences freed memory there.
+            if valid(instance) and item[1]:GetAddress()==instance:GetAddress() then instance[item[2]]=item[3] end
+        elseif valid(item[1]) then item[1][item[2]] = item[3] end
     end
     if previous_hmd~=nil and valid(hmd) then hmd:EnableHMD(previous_hmd) end
     previous_hmd=nil
@@ -78,6 +83,15 @@ local function tick(context)
     local ok, reason = xpcall(function()
         local pawn = context:get()
         if not valid(pawn) or not pawn:IsLocallyControlled() then return end
+        local world=pawn:GetWorld()
+        local world_key=tostring(world:GetAddress())..'|'..world:GetFullName()
+        if active_world and active_world~=world_key then
+            -- Host/local map starts may bypass the controller travel RPCs.
+            -- The old world is already gone, so only release Lua references.
+            menu.clear(nil,false,true)
+            restore('world changed without early cleanup',pawn)
+        end
+        active_world=world_key
         local now = os.clock()
         if snapshot and (not valid(active_pawn) or active_pawn:GetAddress() ~= pawn:GetAddress()) then restore('pawn changed') end
         if now < last_poll or now - last_poll >= .1 then
@@ -195,6 +209,8 @@ RegisterHook('/Script/ZomboyVR.ZomboyPlayerController:ClientLeaveGame',function(
     local pc=context:get()
     if valid(pc) and pc:IsLocalController() then before_travel() end
 end)
+-- Unlike GameplayStatics.OpenLevel, this is a game-instance member function.
+RegisterHook('/Script/ZomboyVR.ZomboyGameInstance:OpenLocalMap',before_travel)
 local function capture_recoil(context,...)
     if failed or not snapshot or lease_deadline<=os.time() then return end
     local args=table.pack(...)

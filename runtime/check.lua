@@ -1,5 +1,6 @@
 -- Run with Lua 5.4. Tests the lease and restoration behavior without a game.
-local now, lease, begin_play, post_tick, travel, leave_game = 100, 0
+local now, lease, begin_play, post_tick, travel, leave_game, open_local_map = 100, 0
+local world_id=1
 local unreadable, read_error = false, false
 local mouse_x, mouse_y = 0, 0
 local camera_rotation = {Pitch=10,Yaw=179,Roll=25}
@@ -18,6 +19,7 @@ local function object(values)
     values.GetFName = function() return {ToString=function() return 'MockPawn' end} end
     values.GetAddress = function() return values.address or 1 end
     values.GetFullName = function() return 'MockGame '..(values.address or 1) end
+    values.GetWorld = function() return {GetAddress=function() return world_id end,GetFullName=function() return 'MockWorld '..world_id end} end
     return values
 end
 local camera = object({bAutoSetLockToHmd=true,bLockToHmd=true,bUsePawnControlRotation=false,
@@ -57,6 +59,10 @@ FName = function(value) return value end
 RegisterBeginPlayPostHook = function(callback) begin_play=callback end
 RegisterHook = function(path,callback,third)
     assert(not path:find('GameplayStatics:',1,true),'UE4SS 3.0.1 cannot hook static Blueprint libraries')
+    if path=='/Script/ZomboyVR.ZomboyGameInstance:OpenLocalMap' then
+        assert(third==nil,'local map cleanup must run before the native call')
+        open_local_map=callback; return
+    end
     if path:find('PlayerController:',1,true) then
         if path:find(':ClientTravelInternal',1,true) then travel=function() callback({get=function() return pc end}) end end
         if path:find(':ClientLeaveGame',1,true) then leave_game=function() callback({get=function() return pc end}) end end
@@ -208,6 +214,27 @@ check((pawn.PlayMode==0 and pawn.bVRMode) and xr_enabled,'map travel restores VR
 active_tick()
 check((pawn.PlayMode==0 and pawn.bVRMode),'map travel clears the previous room choice')
 room_allowed=true
+active_tick()
+assert(open_local_map,'local map starts must have an early cleanup hook')
+open_local_map()
+check(pawn.bVRMode and xr_enabled and not controls_pawn,'local map start restores controls before unloading HQ')
+active_tick()
+check(pawn.bVRMode,'local map cleanup blocks late old-world ticks')
+room_allowed=true; active_tick()
+old_pawn,old_camera=pawn,camera
+local stale_reads=0
+local function freed() stale_reads=stale_reads+1; error('unloaded UObject was dereferenced') end
+old_pawn.IsValid,old_camera.IsValid=freed,freed
+camera=object(copy(camera)); camera.bAutoSetLockToHmd,camera.bLockToHmd=true,true
+pawn=object({address=4,PlayerCamera=camera,PlayMode=0,bVRMode=true})
+world_id=2
+active_tick()
+check(stale_reads==0 and pawn.bVRMode and xr_enabled and not controls_pawn,
+    'unhooked world travel discards freed objects and restores shared XR state without reading old memory')
+check(instance.PlayMode==0,'unhooked travel preserves the persistent game instance mode')
+room_allowed=true; active_tick()
+check(not pawn.bVRMode and controls_pawn==pawn and not xr_enabled,'the next allowed world can activate after stale references are discarded')
+lease=0; tick()
 camera.bAutoSetLockToHmd=nil
 lease=now+3
 tick()

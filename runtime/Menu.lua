@@ -11,32 +11,30 @@ local function valid(o) return o and o:IsValid() end
 local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetAddress() end
 local function text(widget,name,value) widget[name]:SetText(FText(value)) end
 local function close(pawn)
-    if valid(state.widget) then state.widget.PopupOpen=false; state.widget:SetVisibility(1) end
-    if valid(state.holder) and valid(state.holder.CVRMenu) then state.holder.CVRMenu:SetVisibility(false,false) end
+    if valid(state.widget) then state.widget.PopupOpen=false; state.widget.OpenRequested=false end
+    if valid(state.holder) and valid(state.holder.CVRMenu) then
+        state.holder.CVRMenu:SetVisibility(false,false)
+        state.holder.CVRMenu:SetCollisionEnabled(0)
+    end
     if state.opened and valid(pawn) then
-        if valid(pawn['Menu UI']) then pawn['Menu UI']:SetActorHiddenInGame(false) end
         if pawn.InputMode==1 then pawn:HideMenuUI() end
     end
     state.opened=false
 end
-function M.clear(pawn,travel)
+function M.clear(pawn,travel,unloaded)
+    if unloaded then state=R.new(); return end
     close(pawn)
     if travel then state.departing=state.world_name or state.departing end
     R.reset(state)
 end
 local function show(pawn)
-    local component=state.holder.CVRMenu
-    local camera=pawn.PlayerCamera
-    local pos,forward=camera:K2_GetComponentLocation(),camera:GetForwardVector()
-    local rot=camera:K2_GetComponentRotation()
-    component:K2_SetWorldLocationAndRotation({X=pos.X+forward.X*160,Y=pos.Y+forward.Y*160,Z=pos.Z+forward.Z*160},
-        {Pitch=-rot.Pitch,Yaw=rot.Yaw+180,Roll=0},false,{},true)
+    if not state.holder.MenuPlaced or not valid(state.holder.MenuHost) then return end
+    if pawn.InputMode~=0 and pawn.InputMode~=1 or pawn.bForcedUIInput
+        or valid(pawn.StationaryUI) and pawn.StationaryUI.bIsShowing then return end
     state.widget.ModeChoice=0
     state.widget.PopupOpen=true
-    state.widget:SetVisibility(0)
-    component:SetVisibility(true,false)
     pawn:ShowMenuUI(true,FName('None'))
-    if valid(pawn['Menu UI']) then pawn['Menu UI']:SetActorHiddenInGame(true) end
+    state.holder.MenuHost:MenuChoose(FName('CVRLink'))
     state.opened=true
 end
 function M.update(pawn,pc,game,ready,standalone,headset_free)
@@ -49,8 +47,11 @@ function M.update(pawn,pc,game,ready,standalone,headset_free)
     local experimental=M.settings.experimental_start
     local allowed,unsupported=R.check(state,game,pawn,experimental,standalone)
     if not allowed then
-        if valid(old_widget) then old_widget.PopupOpen=false; old_widget:SetVisibility(1) end
-        if valid(old_holder) and valid(old_holder.CVRMenu) then old_holder.CVRMenu:SetVisibility(false,false) end
+        if valid(old_widget) then old_widget.PopupOpen=false; old_widget.OpenRequested=false end
+        if valid(old_holder) and valid(old_holder.CVRMenu) then
+            old_holder.CVRMenu:SetVisibility(false,false)
+            old_holder.CVRMenu:SetCollisionEnabled(0)
+        end
         close(pawn)
         return false,unsupported
     end
@@ -82,7 +83,7 @@ function M.update(pawn,pc,game,ready,standalone,headset_free)
                         end
                         state.discovery='ready'
                         state.holder,state.widget=holder,widget
-                        state.ready,state.greeted,state.opened=nil,false,widget.PopupOpen
+                        state.ready,state.opened=nil,widget.PopupOpen
                         if state.choice~=0 then widget.ModeChoice=0; close(pawn)
                         end
                         break
@@ -96,12 +97,8 @@ function M.update(pawn,pc,game,ready,standalone,headset_free)
     -- A respawn can replace the menu before its next widget is ready. The match
     -- choice still applies, but the loadout and live helper checks still run.
     if not valid(widget) then return enabled end
-    if widget.PopupOpen then state.opened=true end
+    state.opened=widget.PopupOpen
     if state.opened and pawn.InputMode~=1 then close(pawn) end
-    if not state.greeted and state.holder.MenuPlaced then
-        if state.choice==0 then show(pawn) else close(pawn) end
-        state.greeted=true
-    end
     if state.ready~=ready then
         widget.PlayFlatscreen:SetIsEnabled(ready)
         widget.PlayVR:SetIsEnabled(not headset_free)

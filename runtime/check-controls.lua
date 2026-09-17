@@ -1,10 +1,11 @@
 local count,id=0,0
+local unloaded=false
 local real_clock,now=os.clock,0
 os.clock=function() return now end
 local function check(value,label) assert(value,label); count=count+1 end
 local function object(values)
     id=id+1; local address=id
-    values.IsValid=function(self) return not self.invalid end
+    values.IsValid=function(self) assert(not unloaded,'old control object touched after world unload'); return not self.invalid end
     values.GetAddress=function() return address end
     values.GetFName=function() return {ToString=function() return 'MockGun' end} end
     values.IsA=function() return false end
@@ -57,6 +58,7 @@ local pointer=object({RootComponent=component(),bIsEnabled=false,
     ReleasePointerKey=function() releases=releases+1 end,
     ScrollWheel=function(_,value) pointer_scroll=value end})
 local camera=object({FieldOfView=90,SetFieldOfView=function(self,value) self.FieldOfView=value end,
+    K2_SetWorldRotation=function(self,value) self.render_rotation=value; self.render_writes=(self.render_writes or 0)+1 end,
     K2_GetComponentLocation=function() return {X=0,Y=0,Z=170} end,
     GetForwardVector=function() return {X=1,Y=0,Z=0} end,
     GetRightVector=function() return {X=0,Y=1,Z=0} end,
@@ -84,7 +86,7 @@ pawn.CrouchCurve=object({
 pawn.Mesh=object({bVisible=true,SetVisibility=function(self,value,propagate) assert(not propagate); self.bVisible=value end,
     K2_GetComponentLocation=function() return {X=0,Y=0,Z=0} end})
 local function gun(owner,x)
-    local result=object({PrimGripComponent=object({}),GunData={bBoltAction=false},GetOwner=function() return owner end,
+    local result=object({PrimGripComponent=object({}),bIsPhysicalInteractible=true,GunData={bBoltAction=false},Category={ToString=function() return 'Carbine' end},GetOwner=function() return owner end,
         GetCurrentClip=function(self) return self.clip end,
         GetInstigator=function() return nil end,K2_GetActorLocation=function() return {X=x,Y=0,Z=170} end,
         GetTransform=function() return {Translation={X=x,Y=0,Z=170},Rotation={X=0,Y=0,Z=0,W=1},Scale3D={X=1,Y=1,Z=1}} end,
@@ -135,12 +137,13 @@ rifle.GetPancakeSightRelativeTransform=function() return transform({X=4,Y=0,Z=8}
 local pc=object({IsInputKeyDown=function(_,key) return keys[key.KeyName] or false end,
     GetInputAnalogKeyState=function() return wheel end})
 FName=function(value) return value end
-local center_hit
+local center_hit,center_traces=nil,0
 local native_hand_poses
 StaticFindObject=function(value)
     assert(value~='/Script/ZomboyVR.Default__ZomboyInteractionLibrary',
         'FInteraction inputs crash UE4SS 3.0.1 while copying weak object properties')
-    if value=='/Script/Engine.Default__KismetSystemLibrary' then return {LineTraceSingle=function(_,_,start,finish,channel,complex,ignore,debug,hit)
+    if value=='/Script/Engine.Default__KismetSystemLibrary' then return {SphereTraceSingle=function() return false end,LineTraceSingle=function(_,_,start,finish,channel,complex,ignore,debug,hit)
+        center_traces=center_traces+1
         if center_hit then
             assert(start.X==0 and start.Y==0 and start.Z==170 and finish.X==100000 and channel==2 and complex)
             assert(#ignore==2 and ignore[1]==pawn and ignore[2]==rifle)
@@ -226,11 +229,11 @@ held=rifle
 local output=transform({X=0,Y=0,Z=0})
 tick()
 check(left_held==rifle,'equipping a rifle automatically takes its native support grip')
-check(controls.apply_gun_pose(rifle,output) and output.Translation.X==35 and output.Translation.Y==16 and output.Translation.Z==156,'hip pose holds the primary grip at a natural distance')
+check(controls.apply_gun_pose(rifle,output) and output.Translation.X==20 and output.Translation.Y==16 and output.Translation.Z==156,'hip pose holds the primary grip at a natural distance')
 for _,length in ipairs({16,49,85}) do
     rifle.DefaultMuzzleRelativeTransform.Translation.X=length
     controls.apply_gun_pose(rifle,output)
-    check(math.abs(output.Translation.X-35)<.00001,'pistol/rifle barrel length does not extend the hip-fire grip: '..length)
+    check(math.abs(output.Translation.X-20)<.00001,'rifle barrel length does not extend the hip-fire grip: '..length)
 end
 rifle.DefaultMuzzleRelativeTransform.Translation.X=77
 check(not controls.apply_gun_pose(foreign,output),'weapon pose excludes other players and unheld guns')
@@ -311,7 +314,7 @@ now=now+.1; tick(); check(camera.FieldOfView>52 and camera.FieldOfView<80,'zoom 
 now=now+.101; tick()
 check(camera.FieldOfView==52 and not rifle.ads,'zoom fallback changes camera FOV without native sight aiming')
 controls.apply_gun_pose(rifle,output)
-check(output.Translation.X==35 and output.Translation.Y==16,'zoom fallback retains the hip weapon anchor')
+check(output.Translation.X==20 and output.Translation.Y==16,'zoom fallback retains the hip weapon anchor')
 input(); input({F6=true}); input()
 check(camera.FieldOfView==80,'releasing zoom restores the configured FOV')
 controls.configure(nil,120); tick()
@@ -326,7 +329,7 @@ local kicked=transform({X=998,Y=400,Z=200})
 kicked.Rotation={X=0,Y=-math.sin(math.rad(3)),Z=0,W=math.cos(math.rad(3))}
 check(controls.capture_recoil(rifle,original,kicked),'native recoil is captured for the owned held gun')
 controls.apply_gun_pose(rifle,output)
-check(math.abs(output.Rotation.Y-kicked.Rotation.Y)<.00001 and output.Translation.X==33,'native recoil rotation and displacement survive camera anchoring')
+check(math.abs(output.Rotation.Y-kicked.Rotation.Y)<.00001 and output.Translation.X==18,'native recoil rotation and displacement survive camera anchoring')
 check(not controls.capture_recoil(foreign,original,kicked),'recoil from another gun is excluded')
 local native_pass=transform({X=-500,Y=300,Z=900})
 check(controls.apply_local_grab(rifle,native_pass),'native gun update uses the local first-person pose')
@@ -334,6 +337,107 @@ check(native_pass.Translation.X==output.Translation.X and native_pass.Translatio
     and native_pass.Translation.Z==output.Translation.Z and native_pass.Rotation.Y==output.Rotation.Y,
     'native and character pose passes agree without losing or doubling recoil')
 check(not controls.apply_local_grab(foreign,native_pass),'local gun override cannot change another player weapon')
+-- Recoil must keep the eye on the sight axis at the same distance, while
+-- the barrel still climbs by the full native angle. Test a burst and recovery.
+input({RightMouseButton=true}); now=now+.201; tick()
+local function rotated(q,p)
+    return {X=(1-2*(q.Y*q.Y+q.Z*q.Z))*p.X+2*(q.X*q.Y-q.W*q.Z)*p.Y+2*(q.X*q.Z+q.W*q.Y)*p.Z,
+        Y=2*(q.X*q.Y+q.W*q.Z)*p.X+(1-2*(q.X*q.X+q.Z*q.Z))*p.Y+2*(q.Y*q.Z-q.W*q.X)*p.Z,
+        Z=2*(q.X*q.Z-q.W*q.Y)*p.X+2*(q.Y*q.Z+q.W*q.X)*p.Y+(1-2*(q.X*q.X+q.Y*q.Y))*p.Z}
+end
+for _,degrees in ipairs({0,6,20,6,0}) do
+    local burst=transform({X=990,Y=403,Z=202})
+    burst.Rotation={X=0,Y=-math.sin(math.rad(degrees)/2),Z=0,W=math.cos(math.rad(degrees)/2)}
+    controls.capture_recoil(rifle,original,burst)
+    controls.apply_gun_pose(rifle,output)
+    local lens=rotated(output.Rotation,{X=4,Y=0,Z=8})
+    local sight_ray=rotated(output.Rotation,{X=18,Y=0,Z=0})
+    check(math.abs(output.Translation.X+lens.X-sight_ray.X)<.00001
+        and math.abs(output.Translation.Y+lens.Y-sight_ray.Y)<.00001
+        and math.abs(output.Translation.Z+lens.Z-sight_ray.Z-170)<.00001,
+        'ADS keeps the eye on the sight axis at 18 cm during recoil '..degrees)
+    check(math.abs(output.Rotation.Y-burst.Rotation.Y)<.00001
+        and math.abs(output.Rotation.W-burst.Rotation.W)<.00001,
+        'ADS preserves native recoil angle and recovery '..degrees)
+    check(math.abs(camera.render_rotation.Pitch-degrees)<.00001 and camera.render_rotation.Roll==0,
+        'ADS camera follows sight recoil and recovery with a level horizon '..degrees)
+    local cam_pitch=math.rad(camera.render_rotation.Pitch)
+    check(math.abs(math.cos(cam_pitch)-(lens.X+output.Translation.X)/18)<.00001
+        and math.abs(math.sin(cam_pitch)-(lens.Z+output.Translation.Z-170)/18)<.00001,
+        'recoiling sight stays centered in the ADS camera '..degrees)
+end
+controls.apply_local_grab(rifle,native_pass)
+check(math.abs(native_pass.Translation.X-output.Translation.X)<.00001
+    and math.abs(native_pass.Translation.Z-output.Translation.Z)<.00001,
+    'native grab pass keeps the same stable ADS eye point')
+-- Simulate the real camera basis changing after render rotation. Native grab
+-- passes must reuse the un-recoiled ADS frame, including pitch AND yaw.
+local saved_forward,saved_right,saved_up=camera.GetForwardVector,camera.GetRightVector,camera.GetUpVector
+local function render_quat() return hand_transform({position={X=0,Y=0,Z=170},rotation=camera.render_rotation}).Rotation end
+camera.GetForwardVector=function() return rotated(render_quat(),{X=1,Y=0,Z=0}) end
+camera.GetRightVector=function() return rotated(render_quat(),{X=0,Y=1,Z=0}) end
+camera.GetUpVector=function() return rotated(render_quat(),{X=0,Y=0,Z=1}) end
+for _,view in ipairs({{Pitch=0,Yaw=0,Roll=0},{Pitch=35,Yaw=75,Roll=0},{Pitch=-45,Yaw=-120,Roll=0}}) do
+    camera.render_rotation=view -- main.lua restores mouse rotation before each tick.
+    local burst=transform({X=990,Y=403,Z=202})
+    burst.Rotation=hand_transform({position=burst.Translation,rotation={Pitch=9,Yaw=4,Roll=2}}).Rotation
+    controls.capture_recoil(rifle,original,burst)
+    controls.tick(pawn,pc,camera,view)
+    controls.apply_gun_pose(rifle,output)
+    local lens=rotated(output.Rotation,{X=4,Y=0,Z=8})
+    local forward=camera:GetForwardVector()
+    check(math.abs(output.Translation.X+lens.X-18*forward.X)<.00001
+        and math.abs(output.Translation.Y+lens.Y-18*forward.Y)<.00001
+        and math.abs(output.Translation.Z+lens.Z-170-18*forward.Z)<.00001
+        and camera.render_rotation.Roll==0,'ADS sight remains centered with combined native recoil and mouse rotation')
+    for pass=1,3 do
+        controls.apply_local_grab(rifle,native_pass)
+        local stable=true
+        for _,axis in ipairs({'X','Y','Z'}) do
+            stable=stable and math.abs(native_pass.Translation[axis]-output.Translation[axis])<.00001
+        end
+        check(stable,'repeated native pass does not feed rendered ADS recoil into placement '..pass)
+    end
+end
+local menu_camera_writes=camera.render_writes
+pawn.InputMode=1; controls.apply_local_grab(rifle,native_pass)
+check(camera.render_writes==menu_camera_writes,'opening a menu blocks late native ADS camera writes')
+pawn.InputMode=0
+check(controls.status():find('scope_state=unavailable',1,true),'scope diagnostic tolerates a sight without stock zoom fields')
+rifle.GetIsAimDownSight=function() return true end
+sight.bEnablingScop=false
+check(controls.status():find('native_ads=true|scope_enabled=false|scope_capture=false',1,true),
+    'scope diagnostic distinguishes native aim from a disabled scope without changing it')
+camera.GetForwardVector,camera.GetRightVector,camera.GetUpVector=saved_forward,saved_right,saved_up
+input(); now=now+.201; tick(); controls.capture_recoil(rifle,original,kicked)
+controls.apply_gun_pose(rifle,output)
+check(output.Translation.X==18,'leaving ADS restores full native hip kickback')
+local hip_camera_writes=camera.render_writes
+controls.apply_local_grab(rifle,native_pass)
+check(camera.render_writes==hip_camera_writes,'hip recoil does not turn the camera')
+-- Camera-only damping; native gun pose and rifle follow must stay unchanged.
+rifle.Category={ToString=function() return 'Pistol' end}
+input({RightMouseButton=true}); now=now+.201; tick()
+for _,degrees in ipairs({6,20,0}) do
+    local burst=transform({X=990,Y=403,Z=202})
+    burst.Rotation={X=0,Y=-math.sin(math.rad(degrees)/2),Z=0,W=math.cos(math.rad(degrees)/2)}
+    controls.capture_recoil(rifle,original,burst)
+    controls.apply_gun_pose(rifle,output)
+    check(math.abs(camera.render_rotation.Pitch-degrees*.35)<.05 and camera.render_rotation.Roll==0,
+        'pistol camera follows about 35 percent of kick and recovery '..degrees)
+    check(math.abs(output.Rotation.Y-burst.Rotation.Y)<.00001 and math.abs(output.Rotation.W-burst.Rotation.W)<.00001,
+        'pistol keeps full native gun recoil '..degrees)
+    local pitch=camera.render_rotation.Pitch
+    controls.apply_local_grab(rifle,native_pass)
+    check(math.abs(camera.render_rotation.Pitch-pitch)<.00001,
+        'pistol follow does not accumulate across native pose passes '..degrees)
+end
+rifle.Category={ToString=function() return 'Carbine' end}
+controls.capture_recoil(rifle,original,kicked);controls.apply_gun_pose(rifle,output)
+check(math.abs(camera.render_rotation.Pitch-6)<.00001,'rifle resumes full camera follow with no pistol damping retained')
+input();now=now+.201;tick();controls.apply_gun_pose(rifle,output)
+
+
 -- A pistol's authored wrist angle differs from its barrel angle. Use each
 -- active native hand pose and send the base hold, leaving recoil to the gun.
 native_hand_poses=function(is_right)
@@ -344,7 +448,7 @@ end
 tick()
 check(math.abs(right.rotation.Pitch-60)<.00001 and math.abs(left.rotation.Pitch-60)<.00001,
     'both controller angles use the authored grip instead of the level camera angle')
-check(math.abs(right.position.X-43)<.00001 and math.abs(right.position.Y-18)<.00001
+check(math.abs(right.position.X-28)<.00001 and math.abs(right.position.Y-18)<.00001
     and math.abs(right.position.Z-160)<.00001,'right grip matches the base gun pose without adding its captured recoil')
 check(math.abs(left.position.Y-20)<.00001,'support hand uses its own native controller reference')
 for _,pitch in ipairs({-85,85}) do
@@ -359,42 +463,55 @@ pawn.InputMode=1; tick()
 check(right.rotation.Pitch==0,'menus retain their normal controller and pointer placement')
 pawn.InputMode=0
 primary_indicator.invalid=true; lower_priority.invalid=true; tick()
-check(right.position.X==35 and right.rotation.Pitch==0,'destroyed indicators do not receive native pose calls')
+check(right.position.X==20 and right.rotation.Pitch==0,'destroyed indicators do not receive native pose calls')
 primary_indicator.invalid=false; lower_priority.invalid=false
 native_hand_poses=function() return transform({X=5000,Y=0,Z=0}) end; tick()
-check(right.position.X==35 and right.rotation.Pitch==0,'an unusable native pose cannot fling the controller away from the held gun')
+check(right.position.X==20 and right.rotation.Pitch==0,'an unusable native pose cannot fling the controller away from the held gun')
 native_hand_poses=nil; tick()
-check(right.position.X==35 and right.rotation.Pitch==0,'missing native hand data keeps the existing safe placement')
+check(right.position.X==20 and right.rotation.Pitch==0,'missing native hand data keeps the existing safe placement')
 controls.capture_recoil(rifle,original,original)
--- Intersect the corrected muzzle ray with the center target's plane.
-local function shot_at(x)
-    controls.apply_gun_pose(rifle,output)
-    local q=output.Rotation
-    local dx,dy,dz=1-2*(q.Y*q.Y+q.Z*q.Z),2*(q.X*q.Y+q.W*q.Z),2*(q.X*q.Z-q.W*q.Y)
-    local muzzle={X=output.Translation.X+dx*77,Y=output.Translation.Y+dy*77,Z=output.Translation.Z+dz*77}
-    local distance=(x-muzzle.X)/dx
-    return muzzle,muzzle.Y+dy*distance,muzzle.Z+dz*distance,dx
+-- Replaces convergence expectations only in the generated stable hip candidate.
+local baseline=transform({X=0,Y=0,Z=0})
+controls.apply_gun_pose(rifle,baseline)
+local trace_count=center_traces
+for _,depth in ipairs({200,40,10000,40,1000}) do
+    center_hit={X=depth,Y=0,Z=170};tick();controls.apply_gun_pose(rifle,output)
+    local unchanged=true
+    for field,axes in pairs({Translation={'X','Y','Z'},Rotation={'X','Y','Z','W'}}) do
+        for _,axis in ipairs(axes) do unchanged=unchanged and math.abs(output[field][axis]-baseline[field][axis])<.00001 end
+    end
+    check(unchanged,'crossing near/far targets cannot turn or retract the hip gun '..depth)
 end
-center_hit={X=200,Y=0,Z=170}; tick()
-local muzzle,hit_y,hit_z,dx=shot_at(200)
-check(math.abs(hit_y)<.00001 and math.abs(hit_z-170)<.00001,'resting hip-fire ray meets the fixed center target at two metres')
-controls.capture_recoil(rifle,original,kicked)
-muzzle,hit_y,hit_z=shot_at(200)
-check(hit_z>170.1,'native recoil still moves shots away from the center target')
+check(center_traces==trace_count,'stable hip pose does not query surfaces or concealed targets')
+check(output.Translation.X==20 and output.Translation.Y==16 and output.Translation.Z==156,
+    'rifle grip is fifteen cm closer with the same vertical and side placement')
+check(output.Rotation.Y==0 and output.Rotation.Z==0,
+    'resting hip barrel stays parallel to the mouse camera')
+-- Barrel starts 16 cm right and 14 cm below the fixed center ray in this fixture.
+check(output.Translation.Y==16 and output.Translation.Z-170==-14,
+    'close hip shots retain the documented camera-to-barrel offset')
+controls.capture_recoil(rifle,original,kicked);controls.apply_gun_pose(rifle,output)
+check(output.Translation.X==18 and math.abs(output.Rotation.Y-kicked.Rotation.Y)<.00001,
+    'stable hip keeps native angular recoil and kickback')
+controls.apply_local_grab(rifle,native_pass)
+check(math.abs(native_pass.Translation.X-output.Translation.X)<.00001
+    and math.abs(native_pass.Rotation.Y-output.Rotation.Y)<.00001,'late native hip pass reuses the same recoil and placement')
 controls.capture_recoil(rifle,original,original)
-center_hit={X=40,Y=0,Z=170}; tick()
-muzzle,hit_y,hit_z,dx=shot_at(40)
-check(muzzle.X<40 and muzzle.X>0 and dx>0,'close wall retracts the hip muzzle without pointing it backwards')
-check(math.abs(hit_y)<.00001 and math.abs(hit_z-170)<.00001,'retracted muzzle still aims at the close center target')
-input({RightMouseButton=true}); now=now+.201; tick()
-controls.apply_gun_pose(rifle,output)
+input({RightMouseButton=true});now=now+.201;tick();controls.apply_gun_pose(rifle,output)
 check(math.abs(output.Translation.X-14)<.00001 and math.abs(output.Translation.Z-162)<.00001
-    and math.abs(output.Rotation.Y)<.00001,'full scope ADS keeps its existing sight alignment near a wall')
-input(); now=now+.201; tick()
-center_hit={X=10000,Y=0,Z=170}; tick()
-muzzle,hit_y,hit_z=shot_at(10000)
-check(math.abs(hit_y)<.00001 and math.abs(hit_z-170)<.00001,'far center target retains muzzle convergence')
-center_hit=nil; tick()
+    and math.abs(output.Rotation.Y)<.00001,'stable hip candidate preserves aligned full ADS')
+input();now=now+.201;tick();controls.apply_gun_pose(rifle,output)
+check(output.Translation.X==20 and output.Translation.Y==16 and output.Translation.Z==156,
+    'leaving ADS restores the closer rifle hip pose')
+local old_category=rifle.Category
+for _,category in ipairs({'Pistol','Shotgun','SMG'}) do
+    rifle.Category={ToString=function() return category end}
+    controls.apply_gun_pose(rifle,output)
+    check(output.Translation.X==35,category..' retains its existing hip distance')
+end
+rifle.Category=old_category
+center_hit=nil;tick()
+
 -- Sprint lowering follows movement, and recovery belongs to the player, not the gun.
 now=10
 input({LeftShift=true}); controls.apply_gun_pose(rifle,output)
@@ -524,6 +641,33 @@ input(); ammo_available=false; completed=reloads; input({R=true}); now=now+2; ti
 check(reloads==completed and controls.status():find('reload_result=no%-chest%-magazine'),
     'R cannot reload without a usable chest magazine')
 ammo_available=true; input()
+local magazine_plan,magazine_complete=package.loaded.Ammo.plan,package.loaded.Ammo.complete
+local shells=0
+package.loaded.Ammo.plan=function(_,gun) return {gun=gun,kind='shell',delay=.5} end
+package.loaded.Ammo.complete=function() shells=shells+1; return true,'loaded-shell',shells<3 end
+input({R=true}); now=now+.49; tick()
+check(shells==0,'shell reload waits the full half second')
+now=now+.01; tick()
+check(shells==1,'first shell loads after half a second')
+input(); input({R=true}); now=now+.49; tick()
+check(shells==1,'repeated R cannot shorten the next shell delay')
+now=now+.01; tick()
+check(shells==2,'reload continues without another R press')
+now=now+.5; input({G=true})
+check(shells==2,'drop on the shell deadline cancels before spending another shell')
+held=rifle; input(); input({R=true}); now=now+3; tick()
+check(shells==3,'a late tick loads only one shell and stops at full')
+package.loaded.Ammo.plan=function(_,gun) return {gun=gun,kind='loader',delay=2.5} end
+package.loaded.Ammo.complete=magazine_complete
+completed=reloads
+input(); input({R=true}); now=now+2.49; tick()
+check(reloads==completed,'revolver keeps its loader through the whole per-round delay')
+now=now+.01; tick()
+check(reloads==completed+1,'revolver finishes once after the full delay')
+input(); input({R=true}); now=now+2.5; input({Tab=true})
+check(reloads==completed+1,'opening pause on the reload deadline preserves the speedloader')
+input(); input({Tab=true})
+package.loaded.Ammo.plan=magazine_plan
 input()
 local utility=gun(pawn,100); utility.nongun=true
 utility.GetTransform=function() return transform({X=100,Y=0,Z=170}) end
@@ -721,6 +865,134 @@ now=now+.02; tick()
 local p=right.packet.Position
 check(math.abs(p.X-(right.position.Y-20)/2)<.00001 and math.abs(p.Y+(right.position.X-10)/2)<.00001
     and math.abs(p.Z-(right.position.Z-30)/2)<.00001,'packets use native mesh origin with parent rotation and scale')
+unloaded=true
+controls.stop(true)
+check(controls.status()=='','world unload discards control references without accessing freed objects')
+unloaded=false
+check(controls.start(pawn),'controls can start again after discarding an unloaded world')
 controls.stop()
+-- Runs within the generated control fixture, after the shared checks.
+do
+    held=rifle; pawn.InputMode=0; keys={}; now=now+1
+    controls.start(pawn); input(); now=now+.21; tick()
+    local old_plan,old_complete=package.loaded.Ammo.plan,package.loaded.Ammo.complete
+    local loaded=0
+    rifle.HasBulletInChamber=function() return loaded>0 end
+    package.loaded.Ammo.plan=function(_,gun) return {gun=gun,kind='shell',delay=.5} end
+    package.loaded.Ammo.complete=function() loaded=loaded+1; return true,'loaded-shell',true end
+    input({R=true}); input({LeftMouseButton=true})
+    check(trigger==0 and controls.status():find('reload_pending=true',1,true),'empty shotgun click cannot interrupt before a shell is ready')
+    input(); now=now+.501; tick(); input({LeftMouseButton=true})
+    check(loaded==1 and trigger==0 and controls.status():find('shell_raise=true',1,true)
+        and controls.status():find('reload_pending=false',1,true),'fire cancels the next shell and starts a raise delay')
+    now=now+.125;tick();controls.apply_gun_pose(rifle,output)
+    check(trigger==0 and output.Translation.Z<156 and output.Translation.Z>142,'shotgun rises smoothly while firing stays blocked')
+    now=now+.124;tick();check(trigger==0,'shotgun cannot fire before 250 ms')
+    now=now+.002;tick();check(trigger==1 and loaded==1,'held fire works after 250 ms without loading another shell')
+    input();now=now+1;tick();check(loaded==1 and trigger==0,'interrupted reload stays cancelled')
+    local function interrupt()
+        input();input({R=true});now=now+.1;input({LeftMouseButton=true})
+    end
+    interrupt();input();now=now+.3;tick()
+    check(trigger==0,'releasing fire during the raise cancels the delayed shot')
+    interrupt();input({LeftMouseButton=true,Tab=true});now=now+.3;tick()
+    check(trigger==0,'menu cancels a delayed shotgun shot')
+    input();input({Tab=true});input()
+    interrupt();input({LeftMouseButton=true,G=true});now=now+.3;tick()
+    check(trigger==0 and held==nil,'drop cancels a delayed shotgun shot')
+    held=rifle;input()
+    interrupt();held=own;now=now+.3;tick()
+    check(trigger==0,'weapon replacement cancels a delayed shotgun shot');held=rifle;input()
+    interrupt();controls.stop();now=now+.3;controls.start(pawn);tick()
+    check(trigger==0,'stop cancels a delayed shotgun shot');input()
+    package.loaded.Ammo.plan,package.loaded.Ammo.complete=old_plan,old_complete
+
+    local began,ended=0,0
+    sight.IsA=function(_,path) return path:find('ZomboyZoomSightBaseNew',1,true)~=nil end
+    sight.bEnablingScop=false
+    sight.OnBeginAimDownSight=function(self) began=began+1;self.bEnablingScop=true end
+    sight.OnEndAimDownSight=function(self) ended=ended+1;self.bEnablingScop=false end
+    input({RightMouseButton=true});now=now+.21;tick()
+    check(began==1 and sight.bEnablingScop,'independent ADS starts the owned magnified scope')
+    tick();check(began==1,'enabled scope is not restarted every tick')
+    sight.bEnablingScop=false;tick();check(began==2,'stock geometry disable is repaired while independent ADS stays on')
+    input();check(ended==1 and not sight.bEnablingScop,'lowering the gun stops the owned scope')
+
+    input({RightMouseButton=true});input({RightMouseButton=true,F6=true})
+    check(not sight.bEnablingScop,'simple camera zoom stops magnified scope capture')
+    input();input({F6=true});input();input({RightMouseButton=true});controls.stop()
+    check(not sight.bEnablingScop,'controls stop restores the forced scope')
+    sight.IsA=function() return false end
+    controls.start(pawn);input();input({RightMouseButton=true});tick()
+    check(not sight.bEnablingScop,'ordinary sights do not receive forced zoom events')
+    input();now=now+.21;tick()
+
+    local old_find=StaticFindObject
+    local old_trigger=right.OnTriggerAxisChanged
+    local trigger_presses=0
+    right.OnTriggerAxisChanged=function(self,value)
+        if value>0 then trigger_presses=trigger_presses+1 end
+        old_trigger(self,value)
+    end
+    local hit_time=nil
+    local hit_normal={X=-1,Y=0,Z=0}
+    local traces=0
+    StaticFindObject=function(path)
+        if path~='/Script/Engine.Default__KismetSystemLibrary' then return old_find(path) end
+        return {SphereTraceSingle=function(_,context,start,finish,radius,channel,complex,ignored,debug,hit,ignore_self)
+            check(context==pawn and radius==5 and channel==2 and not complex and #ignored==0 and ignore_self,
+                'obstruction sweep uses Weapon collision and native pawn self-ignore')
+            traces=traces+1
+            if hit_time then hit.Time=hit_time;hit.Normal=hit_normal;return true end
+            return false
+        end}
+    end
+    controls.capture_recoil(rifle,original,original);tick();controls.apply_gun_pose(rifle,output)
+    local rest=output.Translation.X
+    hit_time=.5;input({LeftMouseButton=true});controls.apply_gun_pose(rifle,output)
+    check(trigger==0 and trigger_presses==0 and output.Translation.X<rest and output.Rotation.Y==0 and output.Rotation.Z==0,
+        'new obstruction retracts without ever pressing the native trigger or turning the gun')
+    local traced=traces;controls.apply_local_grab(rifle,native_pass)
+    check(traces==traced and math.abs(native_pass.Translation.X-output.Translation.X)<.00001,
+        'native grab uses the same obstruction correction without another query')
+    hit_time=nil;now=now+.05;tick();controls.apply_gun_pose(rifle,output)
+    check(output.Translation.X<rest and trigger==0,'clearing cover never queues the blocked click')
+    now=now+.151;tick();controls.apply_gun_pose(rifle,output)
+    check(math.abs(output.Translation.X-rest)<.00001,'gun returns to its original extended grip after cover clears')
+    input();input({LeftMouseButton=true});check(trigger==1,'fresh click works after cover clears')
+    hit_time=0;tick();controls.apply_gun_pose(rifle,output)
+    check(trigger==0 and controls.status():find('wall_blocked=true',1,true),'initial overlap blocks fire and fully retracts')
+    check(output.Translation.Z<130,'point-blank wall keeps the weapon below the camera instead of inside its barrel')
+    hit_normal={X=0,Y=0,Z=1};tick();controls.apply_gun_pose(rifle,output)
+    check(output.Translation.Y>30,'floor obstruction uses lateral clearance when downward motion is blocked')
+    input({Tab=true});check(controls.status():find('wall_blocked=false',1,true),'menu clears old obstruction state')
+    input();input({Tab=true});input();hit_time=nil;now=now+.2;tick()
+    StaticFindObject=old_find;right.OnTriggerAxisChanged=old_trigger;controls.stop()
+end
+do
+    held=rifle;pawn.InputMode=0;keys={};rifle.bIsPhysicalInteractible=true
+    controls.start(pawn);input();now=now+.3;tick()
+    check(not rifle.bIsPhysicalInteractible,'owned held gun uses the native direct-pose path')
+    input({Tab=true})
+    check(rifle.bIsPhysicalInteractible,'menu returns held physics to its original value')
+    input();input({Tab=true});input()
+    local release=right.OnGripButtonReleased
+    right.OnGripButtonReleased=function(self)
+        check(rifle.bIsPhysicalInteractible,'drop restores the flag before the native release')
+        release(self)
+    end
+    input({G=true});right.OnGripButtonReleased=release
+    check(rifle.bIsPhysicalInteractible and not held,'dropped gun retains normal physics')
+    held=rifle;input();held=own;input()
+    check(rifle.bIsPhysicalInteractible and not own.bIsPhysicalInteractible,'replacement restores old gun and drives only the new gun')
+    held=foreign;input()
+    check(own.bIsPhysicalInteractible and foreign.bIsPhysicalInteractible,'foreign gun is untouched and old gun is restored')
+    held=rifle;input();controls.stop()
+    check(rifle.bIsPhysicalInteractible,'controls stop restores held physics for VR')
+    rifle.bIsPhysicalInteractible=false;controls.start(pawn);input();controls.stop()
+    check(not rifle.bIsPhysicalInteractible,'a gun authored without held physics keeps that original setting')
+    rifle.bIsPhysicalInteractible=true
+end
+
 print(count..' keyboard interaction checks passed; slide physics and sight alignment require live verification')
 os.clock=real_clock

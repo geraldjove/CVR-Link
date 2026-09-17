@@ -5,7 +5,7 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | Key or mouse action | What it does |
 | --- | --- |
 | **F7** | Turn CVR Link off or on. This cannot unlock other loadouts. |
-| **F8** | Open or close the play mode window in CVRFlatscreen. |
+| **F8** | Open or close the CVR Link pause tab. |
 | **F9** | Switch between mouse look and the menu pointer. Use it to look toward an off-screen menu, then press again to click. |
 | **Escape while choosing a key in CVR Link** | Cancel that key change. |
 | **Move mouse** | Look around. In a menu, move the laser pointer. |
@@ -25,7 +25,7 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | **Right mouse button, held** | Aim. Stops sprint, waits 0.3 seconds, then eases into aim over 0.2 seconds. Release to return to the normal view. |
 | **F6** | Switch aiming between the gun's sights and camera zoom. |
 | **B** | Change the gun's fire mode, if it has more than one. |
-| **R** | Reload from one matching chest magazine after 1.5 seconds. Empty reserves block reload. |
+| **R** | Reload: magazines take 1.5 seconds; shotguns add a shell every 0.5 seconds; revolvers wait 0.5 seconds per missing round. Needs matching chest ammo. Once a shotgun shell is ready, press and hold fire to stop reloading and shoot after a 0.25-second raise. |
 | **Left Shift + forward, held** | Sprint and lower the gun. Shift alone does not move you. Release Shift or forward to stop. The gun rises over 0.5 seconds; aim starts after 0.3 seconds and firing is available at once. |
 | **Left Ctrl or C, held** | Crouch. Starts must be half a second apart. Release starts standing up at once. A blocked tap is ignored; release both keys before trying again. |
 | **Left Ctrl or C while sprinting** | Start a slide when you are on the ground and moving fast enough. |
@@ -67,7 +67,17 @@ R uses the matching chest magazine with the most rounds. It empties that
 magazine and replaces the rounds in the gun; any rounds left in the gun's old
 magazine are lost. A round already in the chamber stays. Empty chest magazines
 stay on the vest for the ammo station to refill. R does nothing when the gun
-is full or no matching chest magazine has rounds. Cancelled reloads spend none.
+is full or no matching chest magazine has rounds. Cancelling before completion
+keeps the magazine.
+
+Shotguns use matching shell pouches. R adds one shell every 0.5 seconds until
+the gun is full or the pouches run out. Cancelling keeps shells already loaded
+and stops the next shell. The stock Magnum uses a whole speedloader. It fills
+at the end of a delay of 0.5 seconds per missing round: five rounds take 2.5
+seconds. Cancelling before then keeps the loader. Reloading a partly full
+revolver spends the whole loader, as the stock item has no partial-round count.
+The HUD now shows **SHELL POUCHES** or **SPEEDLOADERS** for these guns. Ammo
+stations refill these items using their normal charges.
 
 Automatic bolt cycling waits 0.8 seconds after a fired case is found,
 then uses the game's bolt and chamber actions. It takes the next round from the

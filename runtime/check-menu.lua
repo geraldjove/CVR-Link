@@ -35,12 +35,13 @@ local function new_widget()
 end
 local widget=new_widget()
 component=obj({WidgetClass=widget:GetClass(),GetUserWidgetObject=function() return widget end,SetVisibility=function(self,v) self.visible=v end,
+    SetCollisionEnabled=function(self,v) self.collision=v end,
     K2_SetWorldLocationAndRotation=function(self,p,r) self.position,self.rotation=p,r end})
-local game_menu=obj({SetActorHiddenInGame=function(self,v) self.hidden=v end})
+local game_menu=obj({MenuChoose=function(self,key) self.tab=key:ToString(); component.visible=true end})
 local pawn=obj({['Menu UI']=game_menu,InputMode=0,ShowMenuUI=function(self) self.InputMode=1 end,HideMenuUI=function(self) self.InputMode=0 end,
     PlayerCamera=obj({K2_GetComponentLocation=function() return {X=0,Y=0,Z=170} end,
         GetForwardVector=function() return {X=1,Y=0,Z=0} end,K2_GetComponentRotation=function() return {Pitch=0,Yaw=0,Roll=0} end})})
-local holder=obj({MenuPlaced=true,CVRMenu=component,GetOwner=function() return pawn end})
+local holder=obj({MenuPlaced=true,MenuHost=game_menu,CVRMenu=component,GetOwner=function() return pawn end})
 local holder_end
 RegisterHook=function(path,callback)
     assert(path=='/CVRFlatscreen/BP_CVRHolder0.BP_CVRHolder0_C:ReceiveEndPlay')
@@ -56,14 +57,14 @@ local game=obj({GetLoadoutPlan=function() return plan end})
 local M=require('Menu')
 local standalone,headset_free=false,false
 local function tick(ready) now=now+1; return M.update(pawn,pc,game,ready~=false,standalone,headset_free) end
-check(not tick(false) and pawn.InputMode==1 and component.visible,'first greeting stays in VR and enables menu input')
-check(game_menu.hidden,'popup hides the overlapping game menu')
+check(not tick(false) and pawn.InputMode==0 and not component.visible,'joining stays in VR without opening a welcome popup')
+check(not widget.OpenRequested and not game_menu.tab,'joining does not select a pause tab')
 check(widget.PlayFlatscreen.enabled==false,'flatscreen choice disabled without helper')
 check(not tick() and widget.PlayFlatscreen.enabled,'helper readiness alone cannot enable flatscreen')
 widget.ModeChoice=1
 check(tick() and pawn.InputMode==0 and not component.visible,'choice enables flatscreen and closes menu')
 f8=true; tick(); f8=false; tick()
-check(pawn.InputMode==1 and component.visible,'F8 reopens settings in the allowed room')
+check(pawn.InputMode==1 and component.visible and game_menu.tab=='CVRLink','F8 opens the stock CVR Link pause tab')
 desktop.mouse=3; desktop.keys.E='F'
 tick()
 check(M.settings.mouse==3 and M.settings.keys.E=='F','desktop save imports mouse and key settings without restarting')
@@ -108,18 +109,17 @@ for death=1,3 do
         ShowMenuUI=pawn.ShowMenuUI,HideMenuUI=pawn.HideMenuUI})
     check(tick(),'the replacement pawn keeps the match choice before a holder exists')
     widget=new_widget()
-    holder=obj({address=death+20,MenuPlaced=false,CVRMenu=component,GetOwner=function() return pawn end})
+    holder=obj({address=death+20,MenuPlaced=false,MenuHost=game_menu,CVRMenu=component,GetOwner=function() return pawn end})
     holders_ready=true
     check(tick() and M.hud()==widget.FlatHUD and not component.visible,'respawn binds the new local HUD without asking again')
-    -- The stock holder opens its popup after its one-second spawn delay.
-    holder.MenuPlaced=true; widget.PopupOpen=true; component.visible=true; pawn.InputMode=1; game_menu.hidden=true
+    holder.MenuPlaced=true
     check(tick() and not component.visible and pawn.InputMode==0 and not game_menu.hidden,
-        'the delayed Blueprint greeting closes while flatscreen continues')
+        'installing the replacement pause tab keeps gameplay uninterrupted')
     ending(old_holder,1)
     check(tick(),'a late exit from the old holder cannot clear the respawn choice')
 end
 ending(holder,0)
-widget=new_widget(); widget.PopupOpen=true; component.visible=true; pawn.InputMode=1; game_menu.hidden=true
+widget=new_widget(); widget.PopupOpen=true; component.visible=true; pawn.InputMode=1
 check(tick() and pawn.InputMode==0 and not component.visible and not game_menu.hidden,
     'a replacement popup already opened by Blueprint closes without trapping menu input')
 widget.ModeChoice=2; tick()
@@ -146,6 +146,12 @@ for reason=1,4 do
 end
 M.clear(pawn)
 check(not component.visible and pawn.InputMode==0,'cleanup releases its menu')
+for _,mode in ipairs({2,0}) do
+    pawn.InputMode=mode; pawn.bForcedUIInput=mode==0
+    f8=true; tick(); f8=false; tick()
+    check(pawn.InputMode==mode and not component.visible,'F8 cannot interrupt stationary or forced UI')
+end
+pawn.bForcedUIInput=false; pawn.InputMode=0
 -- The live rejoin finds our widget but its global string IsA lookup fails.
 path_lookup_ready=false
 for match=1,3 do
@@ -204,5 +210,11 @@ check(not enabled and unsupported,'menu forwards a confirmed incompatible loadou
 plan.valid=false
 enabled,unsupported=tick()
 check(not enabled and not unsupported,'menu keeps unknown loadouts locked while replication finishes')
+plan.valid=true; supported=true; game.address=504; widget=new_widget(); tick()
+widget.IsValid=function() error('old menu touched after world unload') end
+holder.IsValid=function() error('old holder touched after world unload') end
+M.clear(nil,false,true)
+check(M.status():find('|choice=0',1,true) and M.status():find('|widget=false',1,true),
+    'world unload drops the old menu and mode choice without touching freed objects')
 os.time=native_time
 print(count..' menu checks pass')

@@ -86,5 +86,10 @@ hud.stop()
 check(w.visibility==1 and w.removes==2,'return to VR removes the HUD')
 hud.update(nil,pawn,settings,false,false); hud.stop()
 check(w.removes==2,'missing or already stopped HUD is harmless')
+tick()
+w.IsValid=function() error('old HUD touched after world unload') end
+hud.stop(true)
+w=widget(); tick()
+check(w.adds==1,'world unload forgets freed HUD objects and permits a new viewport widget')
 os.clock=real_clock
 print(count..' flatscreen HUD checks passed')
