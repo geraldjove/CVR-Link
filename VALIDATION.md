@@ -25,4 +25,12 @@ Quest pause-page use and dedicated servers still need play checks. Build
 checks do not establish those results. The EXE remains unsigned.
 
 EXE SHA-256: `7623629A0B2C8AC723676FFB3430F0BA2F805BDCF3BD2CB323536BE891949F3A`.
-Final GitHub/mod.io download verification is recorded after publication.
+Anonymous GitHub EXE/checksum and all three mod.io ZIP downloads match.
+Exact ZIP paths and decompressed PAK hashes pass. Windows 8222067 is the
+default; server 8222068 and Android 8222069 are mapped in metadata.
+Android-filtered discovery passes. Public tag commit: `9c53199`.
+
+The downloaded EXE was also unpacked for fresh access checks: 36 room,
+85 menu and 56 camera/lease/restoration checks pass. It requires the exact
+CVRFlatscreen plan in matches. Only standalone stock HQ has the Experimental
+exception. No private development override is present.
