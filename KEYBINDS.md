@@ -8,9 +8,9 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | **F8** | Open or close the CVR Link pause tab. |
 | **F9** | Switch between mouse look and the menu pointer. Use it to look toward an off-screen menu, then press again to click. |
 | **Escape while choosing a key in CVR Link** | Cancel that key change. |
-| **Move mouse** | Look around. Flat pause pages use a normal cursor; stationary loadout and respawn screens use the stock pointer. |
+| **Move mouse** | Look around. Flat pause, join/loadout and respawn pages use a normal cursor. |
 | **W / A / S / D** | Move forward / left / backward / right. |
-| **Tab** | Open or close the flat pause menu. A loadout or respawn screen keeps its own pointer; Tab does not open another menu over it. |
+| **Tab** | Open or close the flat pause menu. It cannot close a required join/loadout or respawn screen or open pause over it. |
 | **Escape in a flat pause page** | Close the pause menu. |
 | **Left click on a menu** | Select the button under the cursor or stock pointer. |
 | **Mouse wheel over a menu** | Scroll the menu. |

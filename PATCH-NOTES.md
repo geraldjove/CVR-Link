@@ -1,38 +1,27 @@
-# CVR Link 0.2.41 — Clearer scopes and a better monitor view
+# CVR Link 0.2.42 - Join menu and mouse fix
 
 18 September 2026 | CVRFlatscreen loadout 0.2.5
 
-- **Clearer AWM scope:** a larger round view with a 1024-square scope image.
-  The background uses 80% render scale and mild blur while aiming. The
-  scope image, ammo and stance HUD stay above the blur. It clears on ADS exit.
-- **Short ADS zoom:** iron and holographic sights get a smooth 10% FOV zoom.
-  Right mouse aims. The old F6 scope/zoom switch is removed.
-- **PC display settings:** V-Sync, FPS limit, window size and borderless mode
-  are in UI Settings for headset-free play. Keep a new mode within 15 seconds
-  or it reverts. FPS 0 means Unlimited.
-- **Flat pause pages:** normal mouse clicks, Tab to open/close, and Escape
-  to close. The pause loadout choices sit above the weapon panels. Stationary
-  loadout and respawn screens keep the stock pointer. F9 still switches
-  pointer and mouse look.
-- **Animated crosshair:** the arms spread with recoil and settle afterward;
-  the center stays fixed. The HUD also works in Experimental HQ.
-- **Smoother app:** fixed FOV/display status flicker and repeated menu searches.
-- **DLSS 5 archived:** the experimental controls and preset are no longer
-  included. Existing ReShade/add-on files and settings are left alone.
+- Fixed mouse look staying stuck after joining or spawning. You no longer
+  need to hold a mouse button or open and close Tab to move the view.
+- Join/loadout and respawn pages now sit flat on your monitor and use normal
+  mouse clicks. They keep the game's own loadout and deploy buttons.
+- Tab and Escape still close pause pages. They cannot skip a required
+  join/respawn screen. F9 still switches pointer and mouse look.
 
-Close the game and app, download the new EXE and let setup update it. Keep
-loadout 0.2.5 installed; its Windows, server and Quest files are unchanged.
-The EXE includes the new scope UI, with no extra player setup.
+Close Contractors and CVR Link, download the new EXE, and let setup update
+the app. Keep loadout 0.2.5 installed. Its Windows, server and Quest files,
+and the app's scope assets, are unchanged. Your settings stay in place.
 
-Public matches still require the exact CVRFlatscreen loadout, your own mode
-choice and an open CVR Link app. Experimental also permits the local HQ.
-Normal VR controls and the accepted gun/reload fixes stay in place.
+Public matches still need the exact CVRFlatscreen loadout, your mode choice
+and an open CVR Link app. Experimental also permits the local HQ. The scope,
+ADS zoom, display controls, HUD and gun behavior from 0.2.41 remain.
+DLSS 5 stays archived; existing add-on files and settings are left alone.
 
-The larger scope currently supports the tested AWM reticle. Its stock marks
-can look soft when enlarged, and holdover marks have not been calibrated.
-Local .40 preview play checks cover the scope, blur and ADS cleanup; .41
-passed source/package checks. Wider guns/maps, multiplayer, travel and Quest
-pause-page use still need tests. No scope FPS gain is claimed.
+The maintainer confirmed flat join/loadout clicks and mouse look after
+spawning in the Dev preview. Public code, installer and package checks
+pass separately. Repeated respawns, more maps and custom menu layouts still
+need checks. Some custom menus may crowd their panels into one row.
 
-Author: **_mintyfishy**. [Download CVR Link](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.41)
+Author: **_mintyfishy**. [Download CVR Link](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.42)
 | [Discord](https://discord.gg/432n3NTq9f)

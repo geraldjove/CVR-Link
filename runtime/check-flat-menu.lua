@@ -101,10 +101,33 @@ check(map.size.X==500 and map.size.Y==500,'original draw buffer size is restored
 check(map.widget.RenderTransform.Scale.X==1 and map.widget.RenderTransformPivot.X==.5,'widget scale and pivot are restored')
 check(score.collision==0,'a hidden page cannot regain pointer collision during cleanup')
 check(not pc.bShowMouseCursor and input_modes[#input_modes]=='game','cursor and game input restore on close')
-pawn.InputMode=2;check(not flat.update(pawn,pc,true),'stationary loadout mode keeps the stock pointer')
-pawn.InputMode=1;pawn.StationaryUI=object({bIsShowing=true})
-check(not flat.update(pawn,pc,true),'a stationary overlay wins even if pause mode remains set')
-pawn.StationaryUI=nil;pawn.bForcedUIInput=true
+pawn.InputMode=2;check(not flat.update(pawn,pc,true),'late stationary actor does not flatten the cached pause menu')
+local join=component('JoinLoadout',900,700)
+local join_root=object({name='StationaryRoot',IsA=function() return false end,AttachChildren=array({join})})
+local stationary=object({RootComponent=join_root,bIsShowing=true})
+pawn.StationaryUI=stationary
+check(flat.update(pawn,pc,true) and join.space==1 and map.space==0,'join/loadout uses its own flat tree instead of the pause menu')
+check(pc.bShowMouseCursor and input_modes[#input_modes]=='ui','join screen uses the normal cursor without a held mouse button')
+now=now+1;binds[27]();binds[string.byte('P')]()
+check(not flat.take_close() and flat.active() and pawn.InputMode==2,'Tab/custom pause and Escape cannot dismiss the mandatory join screen')
+flat.update(pawn,pc,false)
+check(not pc.bShowMouseCursor and input_modes[#input_modes]=='game','F9 captures continuous mouse look even on the stationary screen')
+flat.update(pawn,pc,true)
+check(pc.bShowMouseCursor and input_modes[#input_modes]=='ui','F9 returns to the flat join cursor')
+pawn.InputMode=1
+check(flat.update(pawn,pc,true) and join.space==1 and map.space==0,'visible stationary UI wins even if pause mode remains set')
+pawn.bForcedUIInput=true
+check(flat.update(pawn,pc,true),'forced input keeps the known stationary screen clickable')
+pawn.bForcedUIInput=false;pawn.InputMode=0;stationary.bIsShowing=false
+check(not flat.update(pawn,pc,false) and join.space==0,'spawning restores the original stationary component')
+check(not pc.bShowMouseCursor and input_modes[#input_modes]=='game','spawning restores continuous mouse capture without opening Tab')
+pawn.InputMode=2;stationary.bIsShowing=true;flat.update(pawn,pc,true)
+local respawn=component('DeathWidgetComp',850,800)
+pawn.StationaryUI=object({bIsShowing=true,RootComponent=object({name='RespawnRoot',IsA=function() return false end,AttachChildren=array({respawn})})})
+check(flat.update(pawn,pc,true) and join.space==0 and respawn.space==1,'replacement stationary tree restores the join page and flattens respawn')
+pawn.StationaryUI=nil
+check(not flat.update(pawn,pc,true) and not flat.active() and respawn.space==0,'missing replacement cannot leave an old flat page or UI capture active')
+pawn.InputMode=1;pawn.bForcedUIInput=true
 check(not flat.update(pawn,pc,true),'forced UI retains its stock input path')
 pawn.bForcedUIInput=false;flat.update(pawn,pc,true)
 flat.stop();check(not flat.active() and map.space==0,'helper/VR stop restores world widgets')

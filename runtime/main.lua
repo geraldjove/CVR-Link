@@ -57,7 +57,7 @@ local function set(o, name, value)
     o[name] = value
     assert(o[name] == value, 'property readback failed: ' .. name)
 end
-local function activate(pawn)
+local function activate(pawn,pc)
     snapshot = {}
     if not controls.start(pawn) then snapshot=nil; return end
     local camera = pawn.PlayerCamera
@@ -80,6 +80,10 @@ local function activate(pawn)
     set(camera, 'bAutoSetLockToHmd', false)
     set(camera, 'bLockToHmd', false)
     set(camera, 'bUsePawnControlRotation', false)
+    -- The viewport survives travel and can retain GameAndUI's click-only
+    -- capture from the previous menu. Reclaim it for every local pawn.
+    set(pc, 'bShowMouseCursor', false)
+    assert(StaticFindObject('/Script/UMG.Default__WidgetBlueprintLibrary')):SetInputMode_GameOnly(pc)
     activations = activations + 1
     print('[Flatscreen] flatscreen camera ON; native VR grips retained; original settings captured\n')
 end
@@ -130,7 +134,7 @@ local function tick(context)
         end
         local enabled,unsupported=menu.update(pawn,pc,game,ready,standalone,headset_free)
         display.tick(folder,ready,headset_free)
-        if enabled and not snapshot then activate(pawn) end
+        if enabled and not snapshot then activate(pawn,pc) end
         if not enabled and snapshot then restore('VR selected, unsupported room, or helper off') end
         local world=valid(game) and game:GetFullName() or nil
         if world and returned_world~=world then returned_world=nil end

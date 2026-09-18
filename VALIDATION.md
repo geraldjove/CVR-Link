@@ -1,37 +1,42 @@
-# Release checks — CVR Link 0.2.41 / loadout 0.2.5
+# Release checks - CVR Link 0.2.42 / loadout 0.2.5
 
-18 September 2026. Source/package checks and play results are separate.
+18 September 2026. Code/package checks and play results are separate.
 
-- All ten Lua 5.4 suites pass: camera 56, controls 362, inventory 59, ammo 44,
-  items 19, placement 22, settings 56, room 36, menu 85 and HUD 22 (761 total).
-- Display 33, flat pause 45, scope/FOV/lifecycle 30 and HUD creation/spread 18
-  checks pass. Display app backup, launch and flicker checks pass (14).
-- Fourteen public menu-discovery checks verify bounded searches with immediate
-  helper-loss and unsupported-loadout rejection. All 15 exported Lua suites pass.
-- 48 installer checks and eight scope-package ownership/repair/removal checks.
-- Native form and EXE checks; saved GUI settings and display round trips.
-  The real form was rendered on all tabs, with no DLSS controls.
-- Exact 24-entry EXE payload, reviewed source/vendor hashes and private-data
-  scans pass. Public source excludes private access/freecam and archived DLSS.
-  The clean 48-file public source export also builds and passes payload checks.
-- 141 common asset and 13 public scope asset checks pass in the native editor.
-  The public scope Windows cook has five exact PAK entries. The diagnostic
-  readback material is absent from this package.
+- All ten Lua 5.4 suites pass: camera 61, controls 362, inventory 59, ammo 44,
+  items 19, placement 22, settings 56, room 36, menu 85 and HUD 22 (766 total).
+- Flat menu 55, display 33, scope/FOV/lifecycle 30, HUD creation/spread 18
+  and menu discovery 14 pass. All 15 exported Lua suites pass.
+- New cases cover inherited click-only capture on activation, travel and
+  pawn replacement; stationary menus, spawn, missing/replaced menu trees,
+  F9, Tab/Escape and forced UI. The old code fails the new regressions.
+- Native form and EXE checks pass. Saved GUI settings 57 and display 34
+  checks pass. Display app backup, launch and layout checks pass (14).
+- 49 installer checks include upgrades from 0.2.41. Eight scope-package
+  ownership/repair/removal checks pass. Scope assets are unchanged.
+- The exact 24-entry public EXE payload matches reviewed source and pinned
+  vendor hashes. Private-data scans and PowerShell syntax pass. The pinned
+  upstream UE4SS DLL is allowed to contain its own build paths only after
+  its exact hash matches; it is still scanned for secret patterns.
+- The clean 48-file public source export builds and passes the same payload
+  checks. It excludes private access/freecam and archived DLSS controls.
 
-Public EXE SHA-256: `9BED2F720AD9B7D30799A2FF2AD4F6BABE27DFE710A449A498CFEBFE593F8F14`.
-Scope PAK SHA-256: `E56D5E4F5514783F847F1ACBFB126A6DE01E2B7BEF116D7E6E781FD80FBC2E70`.
+Public EXE SHA-256:
+`0E48D30F17B3E182C91DA3250930ECEC4E5CF554DFB838AF22E0C6CAF81BB586`.
+Scope PAK SHA-256, unchanged from 0.2.41:
+`E56D5E4F5514783F847F1ACBFB126A6DE01E2B7BEF116D7E6E781FD80FBC2E70`.
 
-The .40 Dev preview supplied the live AWM 1024 target, 100/80/70 background
-comparison, blur/ADS cleanup and AP85 90/81/90 FOV evidence. The .41 public
-build has a separate scope package name and passed native load/asset checks;
-it is not a fresh shipping-game play test. Other optics, FPS gains, ballistic
-holdovers, wider maps, death/travel, VR peers and Quest menu use remain open.
+The maintainer confirmed that the flat join/loadout screen is clickable and
+mouse look works after spawning without holding a button or toggling Tab
+in Dev 0.2.42. Public uses the same fix with its existing access checks.
+That preview result is not a new public shipping-game play test. Repeated
+death/respawn, more maps and custom menu layouts remain open. Some custom
+menus crowd their panels into one row.
 
-Public matches retain the exact CVRFlatscreen plan, local choice and live-app
-checks. Experimental permits only the standalone stock HQ exception.
-The in-game loadout stays 0.2.5: Windows 8222067, server 8222068 and Android
-8222069. Its published files are unchanged. Anonymous EXE/scope/checksum and
-all three mod.io ZIP downloads match, including exact ZIP paths and PAK hashes.
-Windows stays default, metadata/tags are unchanged and Android discovery passes.
-The actual public EXE's extracted runtime passes 56 camera/lease, 36 room,
-85 menu and 14 discovery checks. Public tag: `7f22703`. The EXE remains unsigned.
+The 0.2.40 Dev scope/blur and ADS play results, and 0.2.41 asset checks,
+retain their original limits. This update changes no assets. Other optics,
+FPS gains, ballistic marks, VR peers and Quest menu use still need checks.
+
+Public matches retain the exact CVRFlatscreen plan, local mode choice and
+live-app checks. Experimental permits only the standalone stock HQ exception.
+The loadout stays 0.2.5: Windows 8222067, server 8222068 and Android 8222069.
+The EXE remains unsigned. Prior release 0.2.41 is retained for rollback.

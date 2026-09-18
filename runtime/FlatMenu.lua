@@ -1,4 +1,4 @@
--- Private flat pause pages. Keep stock component/widget ownership and actions.
+-- Flat local menu pages. Keep stock component/widget ownership and actions.
 -- Only the existing local game-thread tick may touch UObjects.
 local M={}
 local state,blocked,close_request
@@ -25,7 +25,7 @@ function M.bind(name)
         local code=key_code(key)
         if code and not registered[code] and RegisterKeyBind then
             RegisterKeyBind(code,function()
-                if state and (key=='Escape' or key==state.close_key) and os.clock()-state.started>.25 then close_request=true end
+                if state and not state.stationary and (key=='Escape' or key==state.close_key) and os.clock()-state.started>.25 then close_request=true end
             end)
             registered[code]=true
         end
@@ -34,7 +34,7 @@ function M.bind(name)
     M.close_key=name or 'Tab'
 end
 function M.take_close()
-    local requested=state~=nil and close_request
+    local requested=state~=nil and not state.stationary and close_request
     close_request=nil
     return requested
 end
@@ -81,6 +81,7 @@ end
 function M.active() return state~=nil end
 function M.status()
     return '|flat_menu='..tostring(state~=nil)..'|flat_panels='..tostring(state and state.visible or 0)
+        ..'|flat_kind='..(state and (state.stationary and 'stationary' or 'pause') or 'none')
         ..'|flat_menu_error='..tostring(blocked or '')
 end
 
@@ -156,15 +157,14 @@ local function discover(root,entries)
     end
     walk(root)
 end
-local function update(pawn,pc,pointer_mode)
+local function update(pawn,pc,pointer_mode,menu,stationary)
     M.stage='get local menu'
     -- The Blueprint GetMenuUI has an object OUT parameter, not a native
     -- return value. ShowMenuUI already resolved it into this local cache.
-    local menu=pawn['Menu UI']
+    if state and (not same(state.pawn,pawn) or not same(state.pc,pc) or not same(state.menu,menu)) then M.stop() end
     if not valid(menu) or not valid(menu.RootComponent) then return false end
-    if state and (not same(state.pawn,pawn) or not same(state.menu,menu)) then M.stop() end
     if not state then
-        state={pawn=pawn,pc=pc,menu=menu,entries={},cursor=pc.bShowMouseCursor,started=os.clock(),close_key=M.close_key}
+        state={pawn=pawn,pc=pc,menu=menu,stationary=stationary,entries={},cursor=pc.bShowMouseCursor,started=os.clock(),close_key=M.close_key}
     end
     local s=state
     local now=os.clock()
@@ -242,11 +242,16 @@ local function update(pawn,pc,pointer_mode)
     return true
 end
 function M.update(pawn,pc,pointer_mode)
-    if pawn.InputMode~=1 or pawn.bForcedUIInput or valid(pawn.StationaryUI) and pawn.StationaryUI.bIsShowing then
+    -- Join/loadout and respawn live in the stationary tree, not the pause
+    -- tree. Keep their stock mode and buttons; Tab/Escape must not dismiss it.
+    local stationary=pawn.InputMode==2 or valid(pawn.StationaryUI) and pawn.StationaryUI.bIsShowing or false
+    if not stationary and (pawn.InputMode~=1 or pawn.bForcedUIInput) then
         M.stop();blocked=nil;return false
     end
     if blocked then return false end
-    local ok,result=xpcall(function() return update(pawn,pc,pointer_mode) end,function(reason)
+    local menu=pawn['Menu UI']
+    if stationary then menu=pawn.StationaryUI end
+    local ok,result=xpcall(function() return update(pawn,pc,pointer_mode,menu,stationary) end,function(reason)
         return debug.traceback(tostring(M.stage)..': '..tostring(reason),2)
     end)
     if ok then return result end

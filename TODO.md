@@ -1,13 +1,13 @@
 # More play checks
 
-Last checked: 18 September 2026, for app 0.2.41 and loadout 0.2.5.
+Last checked: 18 September 2026, for app 0.2.42 and loadout 0.2.5.
 These are open checks, not promised release dates.
 
 - Try more guns, scopes, maps and armor in mixed PC/Quest matches.
 - Map other scope reticles, calibrate holdover marks and compare shot impacts.
 - Measure scope/blur frame times on more PCs.
-- Check flat pause pages across more modes, resolutions and language settings.
-  Stationary loadout and respawn screens still use their stock pointer.
+- Check flat pause, join/loadout and respawn pages across more modes,
+  resolutions and languages. Some custom menus crowd panels into one row.
 - Check walls and corners at very close range, shot impacts and ADS transitions.
 - Check the closer rifle pose and movement from another VR player's view.
 - Repeat join, death, respawn, leave and rejoin, including dedicated servers

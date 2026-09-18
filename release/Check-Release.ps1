@@ -26,7 +26,10 @@ try{
         $hash=[BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($bytes)).Replace('-','')
         $wanted=if($vendor.ContainsKey($name)){$vendor[$name]}else{(Get-FileHash -LiteralPath $expected[$name]).Hash}
         if($hash -ne $wanted){throw ('Embedded file differs from reviewed source: '+$name)}
-        foreach($encoding in [Text.Encoding]::ASCII,[Text.Encoding]::Unicode){if($encoding.GetString($bytes) -match $bad){throw ('Private-data pattern in embedded file: '+$name)}}
+        # The exact pinned upstream UE4SS DLL contains its author's build paths.
+        # Only that verified binary may contain Users paths; still scan it for secrets.
+        $entryBad=if($name -eq 'loader/UE4SS.dll'){$bad.Replace('[A-Z]:[\\/]Users[\\/]|','')}else{$bad}
+        foreach($encoding in [Text.Encoding]::ASCII,[Text.Encoding]::Unicode){if($encoding.GetString($bytes) -match $entryBad){throw ('Private-data pattern in embedded file: '+$name)}}
     }
 }finally{$archive.Dispose();$stream.Dispose()}
 $bytes=[IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Exe))

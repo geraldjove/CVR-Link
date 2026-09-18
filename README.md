@@ -41,7 +41,13 @@ Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's new in CVR Link 0.2.41
+### What's new in CVR Link 0.2.42
+
+Mouse look now works after joining or spawning without holding a button or
+toggling Tab. Join/loadout and respawn pages are flat and take normal clicks.
+Required join screens keep their own buttons; Tab/Escape cannot skip them.
+
+### Features kept from 0.2.41
 
 The AWM has a larger, clearer scope with a softly blurred background.
 Iron and holographic sights get a short ADS zoom. Pause pages lie flat
@@ -161,7 +167,7 @@ Its MIT notice is in [UE4SS-LICENSE.txt](release/UE4SS-LICENSE.txt).
 No game files are included in this repo.
 
 For source checks and building the EXE, see [BUILD.md](BUILD.md).
-Read [0.2.41 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
+Read [0.2.42 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
 
 Last verified: **2026-09-18**. Sources: source checks, native desktop and editor
 checks, mod.io download checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)

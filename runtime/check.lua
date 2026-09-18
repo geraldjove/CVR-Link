@@ -6,6 +6,7 @@ local now, lease, begin_play, post_tick, travel, leave_game, open_local_map = 10
 local world_id=1
 local unreadable, read_error = false, false
 local mouse_x, mouse_y = 0, 0
+local capture,capture_changes='down',0
 local camera_rotation = {Pitch=10,Yaw=179,Roll=25}
 local restored_pose, written_location, controller_rotation
 local written_status=''
@@ -42,8 +43,9 @@ local hmd=object({IsHeadMountedDisplayEnabled=function() return xr_enabled end,
     EnableHMD=function(_,value) xr_enabled=value; return true end})
 local pawn = object({PlayerCamera=camera,PlayMode=0,bVRMode=true})
 local pc = object({
+    address=10,bShowMouseCursor=true,
     IsLocalController=function() return true end,
-    GetInputAnalogKeyState=function(_,key) return key.KeyName=='MouseX' and mouse_x or mouse_y end,
+    GetInputAnalogKeyState=function(_,key) return capture=='always' and (key.KeyName=='MouseX' and mouse_x or mouse_y) or 0 end,
     IsInputKeyDown=function() return false end,
     SetControlRotation=function(_,rotation) controller_rotation=copy(rotation) end,
     ClientReturnToMainMenu=function() error('generic engine return leaves the Contractors lobby registered') end,
@@ -53,6 +55,11 @@ local pc = object({
         online_member=false
     end})
 StaticFindObject = function(path)
+    if path:find('Default__WidgetBlueprintLibrary',1,true) then
+        return object({SetInputMode_GameOnly=function(_,controller)
+            assert(controller==pc);capture='always';capture_changes=capture_changes+1
+        end})
+    end
     if path:find('HeadMountedDisplay') then return hmd end
     if path:find('KismetSystemLibrary') then return object({IsStandalone=function() return true end}) end
     return object({
@@ -102,6 +109,7 @@ local function tick() now=now+1; post_tick({get=function() return pawn end}) end
 local function check(condition, label) assert(condition,label); count=count+1 end
 tick()
 check((pawn.PlayMode==0 and pawn.bVRMode) and camera.bLockToHmd, 'inactive startup preserves VR')
+check(capture=='down' and pc.bShowMouseCursor and capture_changes==0,'inactive link leaves stock cursor capture alone')
 controls_ready=false
 for _=1,3 do lease=now+3; tick() end
 check((pawn.PlayMode==0 and pawn.bVRMode) and instance.PlayMode==0 and pawn.bVRMode and xr_enabled and camera.bLockToHmd and not controls_pawn,
@@ -112,6 +120,7 @@ check((pawn.PlayMode==0 and pawn.bVRMode) and not controls_pawn,'a pointer arriv
 lease=now+3
 tick()
 check((pawn.PlayMode==0 and not pawn.bVRMode) and instance.PlayMode==0, 'valid lease activates flatscreen without disabling native VR gun following')
+check(capture=='always' and not pc.bShowMouseCursor,'activation replaces inherited click-only capture without a Tab workaround')
 check(not camera.bLockToHmd and not camera.bAutoSetLockToHmd, 'active camera ignores HMD')
 check(not camera.bUsePawnControlRotation, 'camera excludes headset-derived controller rotation')
 check(not xr_enabled, 'activation disables native HMD/stereo rendering')
@@ -125,6 +134,7 @@ check((pawn.PlayMode==0 and pawn.bVRMode) and instance.PlayMode==0, 'continued r
 check(camera.bLockToHmd and camera.bAutoSetLockToHmd and not camera.bUsePawnControlRotation, 'expiry restores camera flags')
 check(restored_pose.position.X==10 and restored_pose.rotation.Roll==3, 'expiry restores original camera pose')
 check(xr_enabled, 'expiry restores previously-enabled native HMD')
+check(pc.bShowMouseCursor,'expiry restores the original cursor visibility')
 unreadable=false
 lease=now+100
 tick()
@@ -181,7 +191,9 @@ active_tick()
 check((pawn.PlayMode==0 and pawn.bVRMode) and old_pawn.PlayMode==0 and old_camera.bLockToHmd and not controls_pawn and xr_enabled,
     'respawn releases old controls and waits for the new pointer without latching an error')
 controls_ready=true
+capture='down'
 active_tick()
+check(capture=='always' and not pc.bShowMouseCursor,'replacement pawn restores continuous mouse capture after spawning')
 check((pawn.PlayMode==0 and not pawn.bVRMode) and not pawn.bVRMode and not camera.bLockToHmd and not xr_enabled,
     'respawn reapplies flatscreen to the replacement pawn with the same match choice')
 check(old_pawn.PlayMode==0 and old_camera.bLockToHmd and controls_stops==stops+1 and controls_pawn==pawn,
@@ -235,8 +247,10 @@ active_tick()
 check(stale_reads==0 and pawn.bVRMode and xr_enabled and not controls_pawn,
     'unhooked world travel discards freed objects and restores shared XR state without reading old memory')
 check(instance.PlayMode==0,'unhooked travel preserves the persistent game instance mode')
+capture='down';pc.bShowMouseCursor=true
 room_allowed=true; active_tick()
 check(not pawn.bVRMode and controls_pawn==pawn and not xr_enabled,'the next allowed world can activate after stale references are discarded')
+check(capture=='always' and not pc.bShowMouseCursor,'joining a new world resets the surviving viewport UI capture')
 lease=0; tick()
 camera.bAutoSetLockToHmd=nil
 lease=now+3
