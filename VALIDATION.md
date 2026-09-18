@@ -40,3 +40,9 @@ Public matches retain the exact CVRFlatscreen plan, local mode choice and
 live-app checks. Experimental permits only the standalone stock HQ exception.
 The loadout stays 0.2.5: Windows 8222067, server 8222068 and Android 8222069.
 The EXE remains unsigned. Prior release 0.2.41 is retained for rollback.
+
+Published source tag: `06502f3`. Anonymous EXE/scope/checksum downloads match
+the checked artifacts. The downloaded EXE's runtime also passes 61 camera,
+36 room, 85 menu, 14 discovery and 55 flat-menu checks. Mod.io notes link
+0.2.42; unchanged loadout ZIP/PAK hashes, exact entry names, Windows default,
+metadata/tags and Android discovery pass.
