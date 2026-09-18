@@ -1,7 +1,7 @@
 -- Local settings contain data only. Never load them as Lua code.
 local M={}
 M.keys={'W','S','A','D','Tab','E','G','One','Two','Three','Four','Five','V',
-    'LeftMouseButton','RightMouseButton','R','B','LeftShift','LeftControl','C','F6',
+    'LeftMouseButton','RightMouseButton','R','B','LeftShift','LeftControl','C',
     'MiddleMouseButton','LeftAlt','RightAlt','F9'}
 local allowed={LeftMouseButton=true,RightMouseButton=true,MiddleMouseButton=true,
     ThumbMouseButton=true,ThumbMouseButton2=true,SpaceBar=true,Tab=true,Enter=true,
@@ -56,6 +56,8 @@ function M.parse(text)
         elseif name=='experimental_start' then
             if value~='0' and value~='1' then return nil,'Experimental start must be 0 or 1.' end
             result.experimental_start=value=='1'
+        elseif name=='F6' then
+            if not allowed[value] then return nil,'Bad retired scope key.' end
         elseif result.keys[name] then result.keys[name]=value
         else return nil,'Settings file has an unknown entry.' end
     end

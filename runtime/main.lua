@@ -4,6 +4,8 @@ local gameplay = StaticFindObject('/Script/Engine.Default__GameplayStatics')
 local system = StaticFindObject('/Script/Engine.Default__KismetSystemLibrary')
 local hmd = StaticFindObject('/Script/HeadMountedDisplay.Default__HeadMountedDisplayFunctionLibrary')
 local controls = require('Controls')
+local flatmenu = require('FlatMenu')
+local display = require('Display')
 local menu = require('Menu')
 local hud = require('HUD')
 local snapshot, hooked, last_poll, last_report = nil, false, -1, 0
@@ -21,7 +23,10 @@ local function report(message)
     if file then file:write(tostring(os.time()), '|', message, '\n'); file:close() end
 end
 local function restore(reason,unloaded_pawn)
+    flatmenu.stop(unloaded_pawn~=nil)
+    display.stop()
     hud.stop(unloaded_pawn~=nil)
+    hud.clear_source()
     if not snapshot then return end
     local controls_ok, controls_error = pcall(controls.stop,unloaded_pawn~=nil)
     if not unloaded_pawn and original_pose and valid(original_pose.camera) then
@@ -124,6 +129,7 @@ local function tick(context)
             headset_free=not hmd:IsHeadMountedDisplayConnected()
         end
         local enabled,unsupported=menu.update(pawn,pc,game,ready,standalone,headset_free)
+        display.tick(folder,ready,headset_free)
         if enabled and not snapshot then activate(pawn) end
         if not enabled and snapshot then restore('VR selected, unsupported room, or helper off') end
         local world=valid(game) and game:GetFullName() or nil
@@ -143,6 +149,7 @@ local function tick(context)
         else denied_world,denied_since=nil,nil end
         if returned_world then return end
         if snapshot then
+            flatmenu.bind(menu.settings.keys.Tab)
             controls.configure(menu.settings.keys,menu.settings.fov)
             local sensitivity=menu.settings.mouse
             if pc:IsInputKeyDown({KeyName=FName(menu.settings.keys.RightMouseButton)}) and pawn.InputMode==0 then
@@ -157,7 +164,7 @@ local function tick(context)
             camera:K2_SetRelativeLocation(original_pose.position,false,{},true)
             camera:K2_SetWorldRotation(view,false,{},true)
             controls.tick(pawn,pc,camera,view,dx,dy)
-            hud.update(menu.hud(),pawn,menu.settings,controls.hud_state())
+            hud.update(hud.resolve(menu.hud(),pawn,pc),pawn,menu.settings,controls.hud_state())
         end
         if last_report ~= os.time() then
             last_report = os.time()
@@ -171,7 +178,7 @@ local function tick(context)
                 .. '|activations=' .. activations .. '|restorations=' .. restorations .. '|read_misses=' .. read_misses
                 .. '|standalone=' .. tostring(standalone)
                 .. '|game_mode=' .. (valid(game) and valid(game.GameModeClass) and game.GameModeClass:GetFullName() or 'unknown')
-                .. menu.status() .. controls.status())
+                .. menu.status() .. controls.status() .. hud.source_status() .. flatmenu.status())
         end
     end,function(reason) return debug.traceback(tostring(reason),2) end)
     if not ok then

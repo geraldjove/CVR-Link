@@ -1,3 +1,4 @@
+package.loaded.FlatMenu={bind=function() end,stop=function() end,status=function() return '' end,take_close=function() return false end,update=function() return false end}
 local count,id=0,0
 local unloaded=false
 local real_clock,now=os.clock,0
@@ -299,6 +300,7 @@ controls.apply_gun_pose(rifle,output)
 check(output.Translation.Y==16,'ADS starts from hip without a cut')
 now=now+.1; tick(); controls.apply_gun_pose(rifle,output)
 check(output.Translation.Y>0 and output.Translation.Y<16,'ADS travels through an intermediate pose')
+check(camera.FieldOfView>72 and camera.FieldOfView<80,'iron ADS zoom follows the smooth pose transition')
 local entering=output.Translation.Y
 input(); controls.apply_gun_pose(rifle,output)
 check(output.Translation.Y==entering,'releasing ADS midway preserves the current pose')
@@ -309,20 +311,22 @@ check(controls.apply_gun_pose(rifle,output) and output.Translation.X==14 and out
 input()
 check(rifle.ads==false,'right mouse release clears ADS')
 input({F6=true}); input(); input({RightMouseButton=true})
-check(camera.FieldOfView==80,'zoom starts at the configured default FOV')
-now=now+.1; tick(); check(camera.FieldOfView>52 and camera.FieldOfView<80,'zoom transitions through an intermediate FOV')
+check(camera.FieldOfView==72,'retired F6 leaves the short iron ADS zoom active')
+now=now+.1; tick(); check(camera.FieldOfView==72,'retired F6 cannot change iron ADS FOV')
 now=now+.101; tick()
-check(camera.FieldOfView==52 and not rifle.ads,'zoom fallback changes camera FOV without native sight aiming')
+check(camera.FieldOfView==72 and rifle.ads,'iron ADS has a short FOV zoom and retired F6 stays inactive')
 controls.apply_gun_pose(rifle,output)
-check(output.Translation.X==20 and output.Translation.Y==16,'zoom fallback retains the hip weapon anchor')
+check(output.Translation.X==14 and output.Translation.Y==0,'retired F6 preserves the sight-aligned ADS anchor')
 input(); input({F6=true}); input()
-check(camera.FieldOfView==80,'releasing zoom restores the configured FOV')
+check(camera.FieldOfView==72,'releasing iron ADS does not snap FOV')
+now=now+.1;tick();check(camera.FieldOfView>72 and camera.FieldOfView<80,'iron ADS FOV eases out')
+now=now+.101;tick();check(camera.FieldOfView==80,'ADS release restores the configured FOV')
 controls.configure(nil,120); tick()
 check(camera.FieldOfView==120,'saved FOV applies without restarting controls')
 input({F6=true}); input(); input({RightMouseButton=true}); now=now+.201; tick()
-check(camera.FieldOfView==78,'zoom uses the selected 120 degree baseline')
+check(camera.FieldOfView==108 and rifle.ads,'iron ADS zoom follows the selected FOV baseline')
 input(); now=now+.201; tick()
-check(camera.FieldOfView==120,'leaving zoom returns to the selected FOV')
+check(camera.FieldOfView==120,'ADS release keeps the selected FOV')
 input({F6=true}); input(); controls.configure(); tick()
 local original=transform({X=1000,Y=400,Z=200})
 local kicked=transform({X=998,Y=400,Z=200})
@@ -559,7 +563,7 @@ check(math.abs(output.Translation.Z-156)<.00001 and math.abs(output.Rotation.Y)<
     'sprint recovery restores the default hip position and angle')
 input({W=true,LeftShift=true}); now=13.2; tick(); input({F6=true,RightMouseButton=true})
 now=13.499; tick()
-check(camera.FieldOfView==80 and not rifle.ads,'F6 zoom also waits for sprint recovery')
+check(camera.FieldOfView==80 and not rifle.ads,'retired F6 cannot bypass sprint recovery')
 input(); input({F6=true}); now=14; input()
 pawn.CharacterMovement.Velocity.X=0
 input({W=true,S=true,LeftShift=true})
@@ -919,7 +923,7 @@ do
     input();check(ended==1 and not sight.bEnablingScop,'lowering the gun stops the owned scope')
 
     input({RightMouseButton=true});input({RightMouseButton=true,F6=true})
-    check(not sight.bEnablingScop,'simple camera zoom stops magnified scope capture')
+    check(sight.bEnablingScop,'retired F6 does not stop magnified scope capture')
     input();input({F6=true});input();input({RightMouseButton=true});controls.stop()
     check(not sight.bEnablingScop,'controls stop restores the forced scope')
     sight.IsA=function() return false end

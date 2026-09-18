@@ -8,10 +8,11 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | **F8** | Open or close the CVR Link pause tab. |
 | **F9** | Switch between mouse look and the menu pointer. Use it to look toward an off-screen menu, then press again to click. |
 | **Escape while choosing a key in CVR Link** | Cancel that key change. |
-| **Move mouse** | Look around. In a menu, move the laser pointer. |
+| **Move mouse** | Look around. Flat pause pages use a normal cursor; stationary loadout and respawn screens use the stock pointer. |
 | **W / A / S / D** | Move forward / left / backward / right. |
-| **Tab** | Open or close the game menu. A loadout or respawn screen keeps its own pointer; Tab does not open another menu over it. |
-| **Left click on a menu** | Select the button under the laser pointer. |
+| **Tab** | Open or close the flat pause menu. A loadout or respawn screen keeps its own pointer; Tab does not open another menu over it. |
+| **Escape in a flat pause page** | Close the pause menu. |
+| **Left click on a menu** | Select the button under the cursor or stock pointer. |
 | **Mouse wheel over a menu** | Scroll the menu. |
 | **E** | Within two metres, use an ammo station or pick up an aimed item with an empty hand. Over a menu button, select it. |
 | **G** | Drop the item in your hand. |
@@ -23,7 +24,7 @@ Change keys in CVR Link, then click Save settings. These controls apply only in 
 | **V** | Equip your melee weapon, such as a knife. |
 | **Left click with a gun** | Fire. Bolt-action guns cycle automatically after a short pause; release and click for the next shot. Hold for full-auto fire when that mode is selected. Shots are blocked while sprinting; click again once sprint stops. There is no firing delay after sprint. |
 | **Right mouse button, held** | Aim. Stops sprint, waits 0.3 seconds, then eases into aim over 0.2 seconds. Release to return to the normal view. |
-| **F6** | Switch aiming between the gun's sights and camera zoom. |
+| **F6** | No CVR Link scope/zoom action. Other software may still use this key. |
 | **B** | Change the gun's fire mode, if it has more than one. |
 | **R** | Reload: magazines take 1.5 seconds; shotguns add a shell every 0.5 seconds; revolvers wait 0.5 seconds per missing round. Needs matching chest ammo. Once a shotgun shell is ready, press and hold fire to stop reloading and shoot after a 0.25-second raise. |
 | **Left Shift + forward, held** | Sprint and lower the gun. Shift alone does not move you. Release Shift or forward to stop. The gun rises over 0.5 seconds; aim starts after 0.3 seconds and firing is available at once. |

@@ -58,6 +58,10 @@ function M.update(pawn,pc,game,ready,standalone,headset_free)
     local enabled=R.choose(state,0,ready,experimental)
     if state.home then return enabled end
     if not valid(state.widget) then
+        -- Bound discovery while still checking the room and live helper every tick.
+        local now=os.clock()
+        if state.menu_scan_at and now>=state.menu_scan_at and now-state.menu_scan_at<1 then return enabled end
+        state.menu_scan_at=now
         state.discovery='no holder'
         for index=0,2 do
             for _,holder in ipairs(FindAllOf('BP_CVRHolder'..index..'_C') or {}) do

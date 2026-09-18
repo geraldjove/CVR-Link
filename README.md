@@ -41,19 +41,22 @@ Subscribe to CVRFlatscreen in the game. Matches need that exact loadout on any
 map. Installing the app alone does not add it to the game's loadout list.
 Your flatscreen choice stays through death and respawn while CVR Link stays on.
 
-### What's new in CVR Link 0.2.32
+### What's new in CVR Link 0.2.41
 
-Shotguns fire after reload, and magnified scopes work again. Rifles sit closer
-to the body, idle gun jitter is fixed, and pistol aiming has less camera kick.
-The larger CVR Link pause page replaces the welcome popup.
+The AWM has a larger, clearer scope with a softly blurred background.
+Iron and holographic sights get a short ADS zoom. Pause pages lie flat
+on your monitor, and the centered crosshair spreads with recoil.
+UI Settings adds V-Sync, an FPS limit, window size and borderless mode.
+FOV/display flicker and repeated menu searches are fixed.
 
-Shotgun reloads can stop once a shell is ready: press and hold fire to raise
-the gun and shoot after 0.25 seconds. R uses real chest ammo. Ammo stations
-refill your empty reserves. See the [patch notes](PATCH-NOTES.md).
+DLSS 5 is archived and its controls are removed. Existing add-on files and
+settings are left alone. The old F6 scope/zoom action is removed too.
+Right mouse still aims. See the [patch notes](PATCH-NOTES.md).
 
-Update both the Windows app and in-game loadout. Quest players only need
-loadout 0.2.5. These gun fixes were confirmed in local previews; wider guns,
-wall corners, Quest pause-page use and VR peers still need play checks.
+Update the Windows app. Keep loadout 0.2.5 installed; its Windows, server
+and Quest files are unchanged. The EXE includes the scope UI package.
+The large scope currently supports the tested AWM reticle; other sights,
+maps and mixed VR play need more tests.
 
 ### Experimental start without a headset
 
@@ -80,8 +83,13 @@ PC/Quest matches still need tests. Custom maps must support Quest too.
 - **Keybinds:** click an action, then press its new key or mouse button.
 - **Mouse sensitivity:** change normal mouse speed.
 - **Aim sensitivity:** change mouse speed while aiming.
-- **UI Settings:** set FOV from 80 to 120, HUD size from 50% to 150%, and transparency from 0% to 90%.
+- **UI Settings:** set FOV from 80 to 120, HUD size from 50% to 150%, and transparency from 0% to 90%. PC display has V-Sync, FPS and resolution controls for headset-free play.
 - **Save settings:** apply your changes in the running game.
+
+Click **Apply display settings** for PC display changes. Keep a new mode within
+15 seconds or it reverts. FPS 0 means Unlimited. Borderless uses the desktop
+resolution. Confirmed choices are saved separately; original game display
+preferences return after exit while the app stays open.
 
 The app shows **Settings applied in game** when the game reads your changes.
 Two actions cannot share a key. F7, F8, Escape, mouse look, and menu scrolling
@@ -90,10 +98,10 @@ stay fixed. See **[all default controls](KEYBINDS.md)**.
 ## What flatscreen adds
 
 Mouse look keeps the view level. Guns follow your aim and keep normal recoil.
-The crosshair stays in the center. Hip aim stays steady across near and far
+The crosshair stays in the center and spreads with recoil. Hip aim stays steady across near and far
 objects. Close walls push the gun back and down; blocked shots need a fresh
 click after you move clear. Aiming eases
-into the sights; F6 lets you use camera zoom instead.
+into the sights with a short iron/hologram zoom. Tab opens/closes flat pause pages; Escape closes them. F9 still switches pointer and mouse look.
 
 Hold **Shift + forward** to sprint and lower the gun. Release either key to
 stop. Shift alone leaves you still. The gun rises over 0.5 seconds; aim and zoom
@@ -153,8 +161,8 @@ Its MIT notice is in [UE4SS-LICENSE.txt](release/UE4SS-LICENSE.txt).
 No game files are included in this repo.
 
 For source checks and building the EXE, see [BUILD.md](BUILD.md).
-Read [0.2.32 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
+Read [0.2.41 patch notes](PATCH-NOTES.md) and [future tasks](TODO.md).
 
-Last verified: **2026-09-17**. Sources: source checks, native desktop and editor
+Last verified: **2026-09-18**. Sources: source checks, native desktop and editor
 checks, mod.io download checks, and the recorded local play tests. See [VALIDATION.md](VALIDATION.md)
 for what was checked and what still needs a live test.

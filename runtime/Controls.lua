@@ -1,5 +1,7 @@
 -- Game-thread keyboard bridge using the stock controller and widget interactions.
 local M, state = {}, nil
+local flatmenu=require('FlatMenu')
+local scopeview=require('Scope')
 local inventory=require('Inventory')
 local actions=require('ItemActions')
 function M.apply_throw_velocity(controller,output) actions.apply_throw_velocity(controller,output) end
@@ -160,6 +162,7 @@ local function combat_status(gun)
     return ok and result or '|ammo_state=unavailable'
 end
 local function stop_scope()
+    scopeview.stop()
     if valid(state.scope_owned) and same(state.scope_owned:GetOwner(),state.scope_gun)
         and same(state.scope_gun:GetOwner(),state.pawn) then
         state.scope_owned:OnEndAimDownSight()
@@ -262,6 +265,7 @@ local function complete_reload(gun)
     cancel_reload()
 end
 function M.stop(unloaded)
+    scopeview.shutdown(unloaded)
     if unloaded then placement.stop(true); state=nil; return end
     if not state then return end
     restore_gun_drive()
@@ -433,7 +437,7 @@ function M.ui_active(pawn)
     return pointer or pawn.InputMode~=0 or pawn.bForcedUIInput==true or stationary_open(pawn)
 end
 function M.hud_state()
-    return state and (state.ads_amount or 0)>0, state and state.reload_deadline~=nil, state and M.ui_active(state.pawn)
+    return state and (state.ads_amount or 0)>0, state and state.reload_deadline~=nil, state and M.ui_active(state.pawn),state and same(state.recoil_gun,state.pawn:GetHandHoldingGun(true)) and state.recoil_degrees or 0
 end
 function M.wants_look(pawn)
     return not M.pointer_mode(pawn) and not (not M.ui_active(pawn) and state and valid(state.pc)
@@ -446,12 +450,12 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     state.pc=pc
     state.view=copy(rotation,{'Pitch','Yaw','Roll'})
     local pressed,down={},{}
-    for _,name in ipairs({'Tab','F9','E','G','B','One','Two','Three','Four','Five','V','R','F6','LeftMouseButton','RightMouseButton','MiddleMouseButton','LeftAlt','RightAlt','LeftShift','LeftControl','C'}) do
+    for _,name in ipairs({'Tab','F9','E','G','B','One','Two','Three','Four','Five','V','R','LeftMouseButton','RightMouseButton','MiddleMouseButton','LeftAlt','RightAlt','LeftShift','LeftControl','C'}) do
         down[name]=down_key(pc,name)
         pressed[name]=down[name] and not state.keys[name] and not state.first
     end
     state.keys,state.first=down,false
-    if pressed.Tab then
+    if pressed.Tab or flatmenu.take_close() then
         release_fire()
         if pawn.InputMode==1 then pawn:HideMenuUI()
         elseif pawn.InputMode==0 and not pawn.bForcedUIInput and not stationary_open(pawn) then
@@ -470,8 +474,9 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         release_fire()
         if state.click then state.pointer:ReleasePointerKey(key('LeftMouseButton')); state.click=false end
     end
+    local flat=flatmenu.update(pawn,pc,pointer_mode)
     for _,laser in ipairs(state.lasers) do
-        if valid(laser.component) then laser.component:SetHiddenInGame(laser.hidden or not pointer_mode,false) end
+        if valid(laser.component) then laser.component:SetHiddenInGame(laser.hidden or not pointer_mode or flat,false) end
     end
     local menu=M.ui_active(pawn)
     local gun=holding()
@@ -487,11 +492,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         end
     end
     if state.support_gun and not same(state.support_gun,gun) then release_support() end
-    if pressed.F6 then
-        state.zoom_mode=not state.zoom_mode
-        state.ads_amount,state.ads_goal=0,nil
-        if valid(state.ads_gun) then state.ads_gun:SetPancakeAimingDownSight(false); state.ads_gun=nil end
-    end
+
     if bindings.W then
         -- Use the stock movement setters with the chosen PC keys. VR keys are untouched.
         pawn:SetMovementInput_X(not menu and ((down_key(pc,'D') and 1 or 0)-(down_key(pc,'A') and 1 or 0)) or 0)
@@ -516,8 +517,11 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
             Yaw=rotation.Yaw+state.pointer_yaw,Roll=0}
     else state.pointer_yaw,state.pointer_pitch=0,0 end
     place(state.pointer.RootComponent,camera,5,0,0,pointer_rotation)
-    if not state.pointer.bIsEnabled then state.pointer:Enable() end
-    local over_ui=state.pointer_override~=false and state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget()
+    if flat then
+        if state.click then state.pointer:ReleasePointerKey(key('LeftMouseButton'));state.click=false end
+        if state.pointer.bIsEnabled then state.pointer:Disable() end
+    elseif not state.pointer.bIsEnabled then state.pointer:Enable() end
+    local over_ui=not flat and state.pointer_override~=false and state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget()
     aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending and not state.reload_deadline and not state.shell_raise
     state.aiming=aiming and not state.zoom_mode and not state.reload_deadline and not state.shell_raise
     local crouch_down=down.LeftControl or down.C
@@ -668,7 +672,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     end
     local progress=math.min(1,math.max(0,(os.clock()-state.ads_started)/.2))
     state.ads_amount=state.ads_from+(goal-state.ads_from)*progress*progress*(3-2*progress)
-    camera:SetFieldOfView(field_of_view*(1-(state.zoom_mode and .35*state.ads_amount or 0)))
+    camera:SetFieldOfView(scopeview.fov(field_of_view,state.ads_amount,state.sight_actor))
     placement.update()
     if not menu and not state.zoom_mode and state.sight and state.ads_amount>0 then
         -- ADS render rotation must not feed back into the next native gun pass.
@@ -712,6 +716,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
             if not menu then align_grip(state.left,gun,false,base) end
         end
     end
+    scopeview.update(pawn,gun,state.sight_actor,state.ads_amount,state.aiming and not state.wall_blocked)
     -- Check this frame's obstruction and place the gun before pressing the native trigger.
     if trigger_request and not state.wall_blocked and not state.bolt_deadline then
         state.right:OnTriggerAxisChanged(1); state.firing=true
@@ -919,7 +924,7 @@ function M.status()
         ..'|item_action='..state.action.message
         ..'|local_grab_writes='..tostring(state.local_grab_writes or 0)
         ..'|item='..(valid(inventory.held(state.right)) and inventory.held(state.right):GetFName():ToString() or 'none')
-        ..placement.status()..scope_status..combat_status(gun)
+        ..placement.status()..scope_status..combat_status(gun)..scopeview.status()..'|view_fov='..tostring(state.pawn.PlayerCamera.FieldOfView)
 end
 
 return M

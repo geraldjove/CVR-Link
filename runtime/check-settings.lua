@@ -1,4 +1,6 @@
 local S=require('Settings')
+local retired=require('Settings').parse('F6=F12\nE=F6\n')
+assert(retired and retired.keys.F6==nil and retired.keys.E=='F6','retired scope key migrates without changing a custom F6 binding')
 local count=0
 local function check(v,message) assert(v,message); count=count+1 end
 local defaults=S.defaults()

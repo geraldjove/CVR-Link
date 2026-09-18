@@ -7,7 +7,7 @@ local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetA
 function M.new() return {choice=0} end
 function M.reset(state)
     state.world,state.choice,state.widget,state.holder=nil,0,nil,nil
-    state.world_name=nil
+    state.world_name,state.menu_scan_at=nil,nil
     state.home,state.automatic=false,false
 end
 function M.check(state,game,pawn,experimental,standalone)

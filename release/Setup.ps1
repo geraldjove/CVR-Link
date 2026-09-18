@@ -1,7 +1,8 @@
+. (Join-Path $PSScriptRoot 'ScopePackage.ps1')
 # Shared installer code. Dot sourcing defines functions; it never installs.
 $script:GameExe='Contractors_UE4_22_Steam-Win64-Shipping.exe'
 $script:GameHash='65E63AB2AED1F723DF3BAFB58527A3F32C47B880D14EEB5A433D444B570B1467'
-$script:LuaFiles=@('main.lua','Controls.lua','Inventory.lua','Ammo.lua','HUD.lua','ItemActions.lua','Placement.lua','Menu.lua','Room.lua','Settings.lua')
+$script:LuaFiles=@('main.lua','Controls.lua','Inventory.lua','Ammo.lua','HUD.lua','ItemActions.lua','Placement.lua','Menu.lua','Room.lua','Settings.lua','Display.lua','FlatMenu.lua','Scope.lua')
 function Get-Hash([string]$Path) {
     if(Test-Path -LiteralPath $Path -PathType Leaf){return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash}
     return ''
@@ -94,6 +95,7 @@ function Get-InstallFiles([string]$Payload,[string]$GameBin){
 function Install-Link([string]$Payload,[string]$GameBin,[string]$StateRoot){
     Assert-GameClosed
     $files=Get-InstallFiles $Payload $GameBin
+    Assert-ScopePackage $Payload $GameBin $StateRoot
     $journal=Join-Path $StateRoot 'install.json';$previous=$null
     if(Test-Path -LiteralPath $journal){
         $previous=Get-Content -Raw -LiteralPath $journal | ConvertFrom-Json
@@ -115,13 +117,14 @@ function Install-Link([string]$Payload,[string]$GameBin,[string]$StateRoot){
             if($old -and (Get-Hash $before) -eq $old.sha256){$records+=[pscustomobject]@{path=$relative;existed=$old.existed;backup=$old.backup;sha256=$item.sha256}}
             else{$records+=$item}
         }
-        $record=[ordered]@{version='0.2.32';game=[IO.Path]::GetFullPath($GameBin);files=$records}
+        $record=[ordered]@{version='0.2.41';game=[IO.Path]::GetFullPath($GameBin);files=$records}
         $temp=$journal+'.tmp';[IO.File]::WriteAllText($temp,($record | ConvertTo-Json -Depth 5))
         if(Test-Path -LiteralPath $journal){[IO.File]::Replace($temp,$journal,$journal+'.bak')}else{[IO.File]::Move($temp,$journal)}
     }catch{
         for($i=$changed.Count-1;$i -ge 0;$i--){$item=$changed[$i];$target=Safe-Child $GameBin $item.path;if($item.existed){Copy-Item -LiteralPath $item.backup -Destination $target -Force}else{if(Test-Path -LiteralPath $target){Remove-Item -LiteralPath $target}}}
         throw
     }
+    Install-ScopePackage $Payload $GameBin $StateRoot
     return $record
 }
 function Test-LinkInstalled([string]$Payload,[string]$StateRoot){
@@ -129,11 +132,11 @@ function Test-LinkInstalled([string]$Payload,[string]$StateRoot){
     if(-not(Test-Path -LiteralPath $journal)){return $false}
     try{
         $record=Get-Content -Raw -LiteralPath $journal | ConvertFrom-Json
-        if($record.version -ne '0.2.32'){return $false}
+        if($record.version -ne '0.2.41'){return $false}
         if((Get-Hash (Safe-Child $record.game $script:GameExe)) -ne $script:GameHash){return $false}
         foreach($file in $record.files){if((Get-Hash (Safe-Child $record.game $file.path)) -ne $file.sha256){return $false}}
         foreach($lua in $script:LuaFiles){if((Get-Hash (Join-Path $Payload ('runtime\'+$lua))) -ne (Get-Hash (Safe-Child $record.game ('Mods\Flatscreen\Scripts\'+$lua)))){return $false}}
-        return $true
+        return (Test-ScopePackage $Payload $record.game $StateRoot)
     }catch{return $false}
 }
 function Remove-Link([string]$StateRoot){
@@ -160,6 +163,7 @@ function Remove-Link([string]$StateRoot){
         }else{Remove-Item -LiteralPath $target}
     }
     # Keep the journal/backups if anything needs manual review. No recursive deletes.
+    $kept+=@(Remove-ScopePackage $record.game $StateRoot)
     if($kept.Count -eq 0){Remove-Item -LiteralPath $journal}
     return $kept
 }

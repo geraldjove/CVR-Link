@@ -1,7 +1,8 @@
 local S=require('Settings')
 local desktop=S.defaults()
-local native_time,now=os.time,0
+local native_time,native_clock,now=os.time,os.clock,0
 os.time=function() return now end
+os.clock=function() return now end
 S.load=function() return desktop and S.validate(desktop) or nil,'Settings file is not ready.' end
 FName=function(v) return {ToString=function() return v end} end
 FText=function(v) return v end
@@ -217,4 +218,5 @@ M.clear(nil,false,true)
 check(M.status():find('|choice=0',1,true) and M.status():find('|widget=false',1,true),
     'world unload drops the old menu and mode choice without touching freed objects')
 os.time=native_time
+os.clock=native_clock
 print(count..' menu checks pass')

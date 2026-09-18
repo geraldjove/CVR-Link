@@ -1,36 +1,34 @@
-# Release checks - CVR Link 0.2.32 / loadout 0.2.5
+# Release checks — CVR Link 0.2.41 / loadout 0.2.5
 
-17 September 2026. Code checks and play tests are separate evidence.
+18 September 2026. Source/package checks and play results are separate.
 
-- 758 Lua 5.4 checks: camera 56, controls 359, inventory 59, ammo 44,
-  item actions 19, placement 22, settings 56, room 36, menu 85 and HUD 22.
-- 46 isolated installer checks cover repair, upgrades, backups, conflicts,
-  removal and failed-save rollback. No live game installation is changed.
-- Native app/form, 57 GUI settings-file checks and PowerShell syntax checks.
-- Exact 18-entry EXE payload, source/vendor hashes and private-data scans.
-  Public source contains only the 35 approved files.
-- 141 reopened asset checks. The Windows pause PAK matches the local preview.
-  Matching server and Quest packages are cooked from the same saved assets.
-  Each PAK has 27 entries; ZIP paths and decompressed hashes are checked.
+- All ten Lua 5.4 suites pass: camera 56, controls 362, inventory 59, ammo 44,
+  items 19, placement 22, settings 56, room 36, menu 85 and HUD 22 (761 total).
+- Display 33, flat pause 45, scope/FOV/lifecycle 30 and HUD creation/spread 18
+  checks pass. Display app backup, launch and flicker checks pass (14).
+- Fourteen public menu-discovery checks verify bounded searches with immediate
+  helper-loss and unsupported-loadout rejection. All 15 exported Lua suites pass.
+- 48 installer checks and eight scope-package ownership/repair/removal checks.
+- Native form and EXE checks; saved GUI settings and display round trips.
+  The real form was rendered on all tabs, with no DLSS controls.
+- Exact 24-entry EXE payload, reviewed source/vendor hashes and private-data
+  scans pass. Public source excludes private access/freecam and archived DLSS.
+  The clean 48-file public source export also builds and passes payload checks.
+- 141 common asset and 13 public scope asset checks pass in the native editor.
+  The public scope Windows cook has five exact PAK entries. The diagnostic
+  readback material is absent from this package.
 
-Local previews confirmed shotgun reload firing, magnified scopes, the closer
-rifle view and arms, pistol camera movement, idle jitter and the larger pause
-page. The reported match-start crash also passed the user's tested route.
-The release promotes these fixes while retaining the public exact-loadout
-check, local mode choice and live app lease. Development-only access and
-free camera are excluded. Quest keeps normal VR controllers.
+Public EXE SHA-256: `9BED2F720AD9B7D30799A2FF2AD4F6BABE27DFE710A449A498CFEBFE593F8F14`.
+Scope PAK SHA-256: `E56D5E4F5514783F847F1ACBFB126A6DE01E2B7BEF116D7E6E781FD80FBC2E70`.
 
-Wall corners and impacts, more guns/maps, repeated travel, remote VR peers,
-Quest pause-page use and dedicated servers still need play checks. Build
-checks do not establish those results. The EXE remains unsigned.
+The .40 Dev preview supplied the live AWM 1024 target, 100/80/70 background
+comparison, blur/ADS cleanup and AP85 90/81/90 FOV evidence. The .41 public
+build has a separate scope package name and passed native load/asset checks;
+it is not a fresh shipping-game play test. Other optics, FPS gains, ballistic
+holdovers, wider maps, death/travel, VR peers and Quest menu use remain open.
 
-EXE SHA-256: `7623629A0B2C8AC723676FFB3430F0BA2F805BDCF3BD2CB323536BE891949F3A`.
-Anonymous GitHub EXE/checksum and all three mod.io ZIP downloads match.
-Exact ZIP paths and decompressed PAK hashes pass. Windows 8222067 is the
-default; server 8222068 and Android 8222069 are mapped in metadata.
-Android-filtered discovery passes. Public tag commit: `9c53199`.
-
-The downloaded EXE was also unpacked for fresh access checks: 36 room,
-85 menu and 56 camera/lease/restoration checks pass. It requires the exact
-CVRFlatscreen plan in matches. Only standalone stock HQ has the Experimental
-exception. No private development override is present.
+Public matches retain the exact CVRFlatscreen plan, local choice and live-app
+checks. Experimental permits only the standalone stock HQ exception.
+The in-game loadout stays 0.2.5: Windows 8222067, server 8222068 and Android
+8222069. Its published files are unchanged. Download verification is recorded
+after publication. The EXE remains unsigned.
