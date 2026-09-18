@@ -30,5 +30,8 @@ holdovers, wider maps, death/travel, VR peers and Quest menu use remain open.
 Public matches retain the exact CVRFlatscreen plan, local choice and live-app
 checks. Experimental permits only the standalone stock HQ exception.
 The in-game loadout stays 0.2.5: Windows 8222067, server 8222068 and Android
-8222069. Its published files are unchanged. Download verification is recorded
-after publication. The EXE remains unsigned.
+8222069. Its published files are unchanged. Anonymous EXE/scope/checksum and
+all three mod.io ZIP downloads match, including exact ZIP paths and PAK hashes.
+Windows stays default, metadata/tags are unchanged and Android discovery passes.
+The actual public EXE's extracted runtime passes 56 camera/lease, 36 room,
+85 menu and 14 discovery checks. Public tag: `7f22703`. The EXE remains unsigned.
