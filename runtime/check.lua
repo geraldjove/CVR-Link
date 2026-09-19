@@ -1,5 +1,5 @@
 package.loaded.Scope={stop=function() end,shutdown=function() end,update=function() end,status=function() return '' end,fov=function(fov) return fov end}
-package.loaded.FlatMenu={bind=function() end,stop=function() end,status=function() return '' end,take_close=function() return false end,update=function() return false end}
+package.loaded.FlatMenu={install_save_tag=function() end,bind=function() end,stop=function() end,status=function() return '' end,take_close=function() return false end,update=function() return false end}
 package.loaded.Display={tick=function() end,stop=function() end}
 -- Run with Lua 5.4. Tests the lease and restoration behavior without a game.
 local now, lease, begin_play, post_tick, travel, leave_game, open_local_map = 100, 0

@@ -158,7 +158,8 @@ do
     FName=function(text) return {ToString=function() return text end} end
     local tag_path='/Script/ZomboyVR.ZomboyGameState:GetLoadoutTag'
     local save_path='/Game/Core/UI/Loadout/NewUI/NewLoadout_UI_Main.NewLoadout_UI_Main_C:SaveLoadout'
-    local game=object({tag='None'})
+    local current_plan
+    local game=object({tag='None',GetLoadoutPlan=function() return current_plan end})
     game.GetLoadoutTag=function(self)
         local value=FName(self.tag)
         return hooks[tag_path] and hooks[tag_path](wrapped(self),wrapped(value)) or value
@@ -171,7 +172,7 @@ do
         if fail then error('test native save failure') end
         local tag=game:GetLoadoutTag():ToString()
         check(tag=='map_Lumber','fallback supplies the same map tag used by stock LoadLoadouts')
-        local other=object({tag='None',GetLoadoutTag=game.GetLoadoutTag})
+        local other=object({tag='None',GetLoadoutTag=game.GetLoadoutTag,GetLoadoutPlan=function() return nil end})
         check(other:GetLoadoutTag():ToString()=='None','temporary override cannot affect another GameState')
         writes=writes+1;saves[tag..index]=current
     end})
@@ -228,6 +229,28 @@ do
     check(flat.active() and flat.status():find('|loadout_save=error',1,true),'save failure is reported without disabling controls')
     hooks[save_path](wrapped(w));check(writes==before+1,'next Save can retry after an error')
     flat.stop(true);hooks[save_path](wrapped(w));check(writes==before+1,'travel drops all saved widget references')
+    -- Model native Save/Load using GetLoadoutTag with no GameMode, menu or pawn.
+    -- A remote client's save must survive respawn and changes of map/loadout.
+    mode_available=false
+    for _,entry in ipairs({{'CVRFlatscreen','6383627+0','AWM'},
+        {'CVRFlatscreenWW2','6391827+0','LeeEnfield'}, {'CVRFlatscreenNinja','6391829+0','Bow'}}) do
+        local plugin,expected,weapon=table.unpack(entry)
+        current_plan=object({name='ZomboyLoadoutPlanInfo /'..plugin..'/CVRFlatscreenPlan.CVRFlatscreenPlan'})
+        check(game:GetLoadoutTag():ToString()==expected,'missing client registry uses inspected native mod tag: '..plugin)
+        saves[game:GetLoadoutTag():ToString()..'0']={gun=weapon}
+        saves[game:GetLoadoutTag():ToString()..'1']={gun='second slot'}
+        flat.stop(true)
+        local respawn=object({tag='None',GetLoadoutTag=game.GetLoadoutTag,GetLoadoutPlan=function() return current_plan end})
+        check(saves[respawn:GetLoadoutTag():ToString()..'0'].gun==weapon,'respawn keeps chosen weapon without local GameMode: '..plugin)
+        check(saves[respawn:GetLoadoutTag():ToString()..'1'].gun=='second slot','respawn retains separate numbered slots: '..plugin)
+    end
+    check(saves['6383627+00'].gun=='AWM' and saves['6391827+00'].gun=='LeeEnfield','Standard and WW2 cannot overwrite each other')
+    game.tag='native_existing';check(game:GetLoadoutTag():ToString()=='native_existing','valid native tag always wins')
+    game.tag='None';current_plan=nil
+    check(game:GetLoadoutTag():ToString()=='None','missing replicated plan leaves the native tag unchanged')
+    current_plan=object({name='ZomboyLoadoutPlanInfo /Other/CVRFlatscreenPlan.CVRFlatscreenPlan'})
+    check(game:GetLoadoutTag():ToString()=='None','similar names and other mods are not remapped')
+    flat.install_save_tag();check(registrations==2,'startup and menu registration cannot duplicate native hook')
     -- Restore this test's component state without accessing a freed world.
     panel.space=0;map.space=0;nav.space=0;score.space=0;social.space=0;pc.bShowMouseCursor=false
     children[#children]=nil;StaticFindObject=previous_find

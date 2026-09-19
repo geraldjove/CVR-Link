@@ -85,6 +85,108 @@ function Write-Atomic([string]$Path,[string]$Text){
  $temp=$Path+'.tmp';[IO.File]::WriteAllText($temp,$Text,[Text.UTF8Encoding]::new($false))
  if(Test-Path -LiteralPath $Path){[IO.File]::Replace($temp,$Path,$Path+'.bak')}else{[IO.File]::Move($temp,$Path)}
 }
+# Embedded update checks. Download metadata only from the public release API.
+function Read-LinkRelease([string]$Text,[version]$CurrentVersion){
+ if($Text.Length -gt 1048576){throw 'Update information is too large.'}
+ $release=$Text|ConvertFrom-Json
+ if($release.draft -ne $false -or $release.prerelease -ne $false -or $release.tag_name -cnotmatch '^v(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]{0,4})$'){throw 'The update is not a stable CVR Link release.'}
+ $version=[version]$release.tag_name.Substring(1)
+ $base='https://github.com/geraldjove/CVR-Link/releases/'
+ if($release.html_url -cne ($base+'tag/'+$release.tag_name)){throw 'Unexpected release page.'}
+ $assets=@($release.assets|Where-Object {$_.name -ceq 'CVRLink.exe'})
+ if($assets.Count -ne 1){throw 'The release must have one CVR Link installer.'}
+ $asset=$assets[0]
+ if($asset.state -cne 'uploaded' -or $asset.browser_download_url -cne ($base+'download/'+$release.tag_name+'/CVRLink.exe')){throw 'Unexpected installer download.'}
+ if($asset.size -lt 1 -or $asset.size -gt 33554432 -or $asset.digest -cnotmatch '^sha256:[a-f0-9]{64}$'){throw 'The installer size or checksum is missing.'}
+ return [pscustomobject]@{Version=$version;Newer=($version -gt $CurrentVersion);Url=$asset.browser_download_url;Sha256=$asset.digest.Substring(7);Size=[long]$asset.size}
+}
+function Assert-LinkUpdateClosed {
+ if(Get-Process Contractors,Contractors_UE4_22_Steam-Win64-Shipping -ErrorAction SilentlyContinue){throw 'Close Contractors normally before installing an update.'}
+}
+function Save-LinkUpdate([byte[]]$Bytes,$Release,[string]$Folder){
+ if($Bytes.Length -ne $Release.Size){throw 'The installer download is incomplete. Try again.'}
+ $sha=[Security.Cryptography.SHA256]::Create()
+ try{$hash=[BitConverter]::ToString($sha.ComputeHash($Bytes)).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
+ if($hash -cne $Release.Sha256){throw 'The installer checksum did not match. Try again.'}
+ $folderPath=[IO.Path]::GetFullPath($Folder)
+ for($parent=$folderPath;$parent;$parent=[IO.Path]::GetDirectoryName($parent)){
+  if([IO.Directory]::Exists($parent) -and ([IO.File]::GetAttributes($parent) -band [IO.FileAttributes]::ReparsePoint)){throw 'An update folder cannot be a link or junction.'}
+ }
+ [IO.Directory]::CreateDirectory($folderPath)|Out-Null
+ $path=Join-Path $folderPath 'CVRLink.exe'
+ # Each attempt gets its own folder; never overwrite an existing executable.
+ $stream=[IO.File]::Open($path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+ try{$stream.Write($Bytes,0,$Bytes.Length)}finally{$stream.Dispose()}
+ if([Reflection.AssemblyName]::GetAssemblyName($path).Version.ToString(3) -cne $Release.Version.ToString(3)){throw 'The installer version did not match the release.'}
+ return $path
+}
+function Close-LinkUpdateRequest {
+ if($script:linkUpdate.Client){$script:linkUpdate.Client.CancelPendingRequests();$script:linkUpdate.Client.Dispose()}
+ $script:linkUpdate.Client=$null;$script:linkUpdate.Task=$null
+}
+function Start-LinkUpdateRequest([string]$Kind,[string]$Url){
+ Add-Type -AssemblyName System.Net.Http
+ $client=[Net.Http.HttpClient]::new()
+ $client.Timeout=[TimeSpan]::FromSeconds($(if($Kind -eq 'check'){12}else{120}))
+ $client.MaxResponseContentBufferSize=if($Kind -eq 'check'){1048576}else{33554432}
+ $client.DefaultRequestHeaders.UserAgent.ParseAdd('CVRLink-Updater')
+ $client.DefaultRequestHeaders.Accept.ParseAdd('application/vnd.github+json')
+ $script:linkUpdate.Client=$client;$script:linkUpdate.Kind=$Kind
+ $script:linkUpdate.Task=$client.GetByteArrayAsync($Url)
+}
+function Start-LinkUpdateCheck {
+ if($script:linkUpdate.Task){return}
+ $script:linkUpdate.Release=$null;$script:linkUpdate.ReadyFile=$null
+ $updateInstall.Enabled=$false;$updateCheck.Enabled=$false
+ $updateStatus.Text='Checking for updates...';$updateTab.Text='Updates'
+ try{Start-LinkUpdateRequest 'check' 'https://api.github.com/repos/geraldjove/CVR-Link/releases/latest'}
+ catch{Close-LinkUpdateRequest;$updateCheck.Enabled=$true;$updateStatus.Text='Could not check for updates. Check your connection and try again.'}
+}
+function Complete-LinkUpdateInstall {
+ if($script:linkUpdate.PreviewOnly){throw 'This Dev preview does not install public releases.'}
+ Assert-LinkUpdateClosed
+ Save-Settings
+ $script:pendingLinkUpdate=[pscustomobject]@{Path=$script:linkUpdate.ReadyFile;Sha256=$script:linkUpdate.Release.Sha256}
+ $form.Close()
+}
+function Start-LinkUpdateInstall {
+ try{
+  if($script:linkUpdate.PreviewOnly){throw 'This Dev preview does not install public releases.'}
+  if($script:linkUpdate.Task -or -not $script:linkUpdate.Release.Newer){return}
+  Assert-LinkUpdateClosed
+  if($script:linkUpdate.ReadyFile){Complete-LinkUpdateInstall;return}
+  $updateInstall.Enabled=$false;$updateCheck.Enabled=$false
+  $updateStatus.Text='Downloading and checking the update...'
+  Start-LinkUpdateRequest 'download' $script:linkUpdate.Release.Url
+ }catch{Close-LinkUpdateRequest;$updateCheck.Enabled=$true;$updateStatus.Text=$_.Exception.Message}
+}
+function Poll-LinkUpdate {
+ if(-not $script:linkUpdate.Task -or -not $script:linkUpdate.Task.IsCompleted){return}
+ $kind=$script:linkUpdate.Kind
+ try{
+  $bytes=$script:linkUpdate.Task.GetAwaiter().GetResult()
+  Close-LinkUpdateRequest
+  if($kind -eq 'check'){
+   $release=Read-LinkRelease ([Text.Encoding]::UTF8.GetString($bytes)) $script:linkUpdate.CurrentVersion
+   $script:linkUpdate.Release=$release
+   if($script:linkUpdate.PreviewOnly){$updateStatus.Text='Latest public release: '+$release.Version+'. This Dev preview keeps your private build.'}
+   elseif($release.Newer){$updateStatus.Text='CVR Link '+$release.Version+' is available.';$updateInstall.Enabled=$true;$updateTab.Text='Updates (new)'}
+   else{$updateStatus.Text='You are up to date.'}
+   $updateChecked.Text='Last checked: '+(Get-Date -Format 'g')
+  }else{
+   $folder=Join-Path ([IO.Path]::GetTempPath()) ('CVRLink-update-'+[guid]::NewGuid().ToString('N'))
+   $script:linkUpdate.ReadyFile=Save-LinkUpdate $bytes $script:linkUpdate.Release $folder
+   $updateInstall.Enabled=$true
+   $updateStatus.Text='Update verified. Close Contractors, then click Install update.'
+   Complete-LinkUpdateInstall
+  }
+ }catch{
+  Close-LinkUpdateRequest
+  $updateStatus.Text=if($kind -eq 'check'){'Could not check for updates. Check your connection and try again.'}else{$_.Exception.Message}
+  $updateInstall.Enabled=(-not $script:linkUpdate.PreviewOnly -and $script:linkUpdate.Release.Newer)
+ }finally{$updateCheck.Enabled=$true}
+}
+
 $form=[Windows.Forms.Form]::new();$form.Text='CVR Link'
 $iconPath=Join-Path $PSScriptRoot 'CVRLink.ico'
 if(-not(Test-Path -LiteralPath $iconPath)){$iconPath=Join-Path $PSScriptRoot 'release/CVRLink.ico'}
@@ -147,6 +249,26 @@ $experimentalHint=[Windows.Forms.Label]::new();$experimentalHint.Text="Start Con
 $startGame=[Windows.Forms.Button]::new();$startGame.Text='Save and start Contractors';$startGame.Width=260;$startGame.Height=38;$startGame.FlatStyle='Flat';$startGame.BackColor=[Drawing.Color]::FromArgb(155,12,24);$startGame.AccessibleName=$startGame.Text
 $startGame.Add_Click({try{Save-Settings;$active.Checked=$true;Start-Contractors $experimental.Checked;$message.Text='Starting Contractors through Steam. Keep CVR Link enabled.'}catch{$message.Text=$_.Exception.Message}})
 $experimentalRows.Controls.AddRange(@($experimental,$experimentalHint,$startGame));$experimentalTab.Controls.Add($experimentalRows)
+$script:linkUpdate=@{CurrentVersion=[version]'0.2.73';PreviewOnly=$false;Client=$null;Task=$null;Release=$null;ReadyFile=$null}
+$script:pendingLinkUpdate=$null
+$updateTab=[Windows.Forms.TabPage]::new('Updates');$updateTab.BackColor=$form.BackColor;$updateTab.ForeColor=$form.ForeColor
+$tabs.TabPages.Add($updateTab)
+$updateRows=[Windows.Forms.FlowLayoutPanel]::new();$updateRows.Dock='Fill';$updateRows.FlowDirection='TopDown';$updateRows.WrapContents=$false;$updateRows.AutoScroll=$true;$updateRows.Padding=[Windows.Forms.Padding]::new(18)
+$updateVersion=[Windows.Forms.Label]::new();$updateVersion.AutoSize=$true;$updateVersion.Text='Installed version: '+$script:linkUpdate.CurrentVersion
+$updateStatus=[Windows.Forms.Label]::new();$updateStatus.AutoSize=$true;$updateStatus.MaximumSize=[Drawing.Size]::new(470,0);$updateStatus.Margin=[Windows.Forms.Padding]::new(0,16,0,8);$updateStatus.Text='Updates are checked when the app opens.'
+$updateChecked=[Windows.Forms.Label]::new();$updateChecked.AutoSize=$true;$updateChecked.Text='Not checked yet.'
+$updateCheck=[Windows.Forms.Button]::new();$updateCheck.Text='Check for updates';$updateCheck.AccessibleName=$updateCheck.Text;$updateCheck.Width=240;$updateCheck.Height=36;$updateCheck.FlatStyle='Flat';$updateCheck.Margin=[Windows.Forms.Padding]::new(0,20,0,8)
+$updateCheck.Add_Click({Start-LinkUpdateCheck})
+$updateInstall=[Windows.Forms.Button]::new();$updateInstall.Text='Install update';$updateInstall.AccessibleName=$updateInstall.Text;$updateInstall.Width=240;$updateInstall.Height=36;$updateInstall.FlatStyle='Flat';$updateInstall.BackColor=[Drawing.Color]::FromArgb(155,12,24);$updateInstall.Enabled=$false
+$updateInstall.Add_Click({Start-LinkUpdateInstall})
+$updateHint=[Windows.Forms.Label]::new();$updateHint.AutoSize=$true;$updateHint.MaximumSize=[Drawing.Size]::new(470,0);$updateHint.Margin=[Windows.Forms.Padding]::new(0,20,0,0)
+$updateHint.Text="Checks run in the background. You can keep playing.`n`nClose Contractors before installing an update. Your settings are saved, then this app closes and the new installer opens.`n`nLoadout mods still update through Contractors."
+if($script:linkUpdate.PreviewOnly){$updateHint.Text="This private preview checks the public release feed. Installing a public release here is disabled so your Dev build stays in place.`n`nLoadout mods still update through Contractors."}
+$updateRows.Controls.AddRange(@($updateVersion,$updateStatus,$updateChecked,$updateCheck,$updateInstall,$updateHint));$updateTab.Controls.Add($updateRows)
+$updateTimer=[Windows.Forms.Timer]::new();$updateTimer.Interval=200;$updateTimer.Add_Tick({Poll-LinkUpdate})
+$form.Add_Shown({if(-not $Check){$updateTimer.Start();Start-LinkUpdateCheck}})
+$form.Add_FormClosed({$updateTimer.Stop();$updateTimer.Dispose();Close-LinkUpdateRequest})
+
 $tabs.Add_SelectedIndexChanged({if($script:capture){$script:capture=$null;Refresh-Keys;$message.Text='Key change cancelled.'}})
 function Set-DisplayIniText([string]$Text,[string]$Section,$Values) {
  $newline=if($Text.Contains("`r`n")){"`r`n"}else{"`n"}
@@ -444,7 +566,7 @@ if($Check){
  Assert-DisplayLiveChange $different $sample $false
  $rejected=$false;try{Assert-DisplayLiveChange $different $sample $true}catch{$rejected=$true};if(-not $rejected){throw 'Live DLSS resize was not blocked'}
  $text=Encode-Settings 2.5 1 $bindings .8 .65 $true 120;$parsed=Read-Settings $text
- if($tabs.TabPages.Count -ne 3 -or $parsed.Scale -ne .8 -or $parsed.Opacity -ne .65 -or -not $parsed.ExperimentalStart -or $parsed.Fov -ne 120){throw 'Tabs or settings did not round trip'}
+ if($tabs.TabPages.Count -ne 4 -or $parsed.Scale -ne .8 -or $parsed.Opacity -ne .65 -or -not $parsed.ExperimentalStart -or $parsed.Fov -ne 120){throw 'Tabs or settings did not round trip'}
  foreach($badFov in @('79','121','nope','NaN')){$rejected=$false;try{$null=Read-Settings ('fov='+$badFov)}catch{$rejected=$true};if(-not $rejected){throw 'Invalid FOV accepted'}}
  foreach($bad in @('true','false','2','-1','0.5','01')){$rejected=$false;try{$null=Read-Settings ('experimental_start='+$bad)}catch{$rejected=$true};if(-not $rejected){throw 'Invalid Experimental setting accepted'}}
  foreach($badUi in @(@(.49,1),@(1.51,1),@(1,.09),@(1,1.01))){$rejected=$false;try{$null=Encode-Settings 2.5 1 $bindings $badUi[0] $badUi[1]}catch{$rejected=$true};if(-not $rejected){throw 'Invalid HUD settings accepted'}}
@@ -475,7 +597,7 @@ if($Check){
  $script:testRunning=$false;function Test-Path {return $false};$rejected=$false
  try{Start-Contractors $true}catch{$rejected=$true}
  if(-not $rejected -or $script:launch){throw 'Missing Steam executable was not handled'}
- $form.Dispose();'CVR Link: native form, 24 controls, three tabs, settings round trip, atomic save, and Steam launch checks passed.';return
+ $form.Dispose();'CVR Link: native form, 24 controls, four tabs, settings round trip, atomic save, and Steam launch checks passed.';return
 }
 New-Item -ItemType Directory -Path $directory -Force|Out-Null
 $mutex=[Threading.Mutex]::new($false,'Local\ContractorsFlatscreenControl')
@@ -517,3 +639,5 @@ $timer.Add_Tick({
 })
 try{$timer.Start();[void]$form.ShowDialog()}
 finally{Close-DisplayConfirm;$timer.Stop();$timer.Dispose();try{Write-Atomic (Join-Path $directory 'control.txt') '0'}finally{$mutex.ReleaseMutex();$mutex.Dispose();$form.Dispose()}}
+
+if($script:pendingLinkUpdate){$script:pendingLinkUpdate}

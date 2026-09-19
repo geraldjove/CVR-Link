@@ -19,7 +19,7 @@ function Add-Shortcuts {
         $link.TargetPath=$Executable;$link.WorkingDirectory=Split-Path -Parent $Executable;$link.IconLocation=$Executable+',0';$link.Description='CVRFlatscreen keys, mouse and HUD settings';$link.Save()
     }
     New-Item -Path $registration -Force | Out-Null
-    foreach($entry in @{DisplayName='CVR Link';DisplayVersion='0.2.69';Publisher='_mintyfishy';DisplayIcon=$Executable;UninstallString=('"'+$Executable+'" --uninstall');URLInfoAbout='https://github.com/geraldjove/CVR-Link'}.GetEnumerator()){
+    foreach($entry in @{DisplayName='CVR Link';DisplayVersion='0.2.73';Publisher='_mintyfishy';DisplayIcon=$Executable;UninstallString=('"'+$Executable+'" --uninstall');URLInfoAbout='https://github.com/geraldjove/CVR-Link'}.GetEnumerator()){
         New-ItemProperty -LiteralPath $registration -Name $entry.Key -Value $entry.Value -PropertyType String -Force | Out-Null
     }
 }
@@ -75,4 +75,9 @@ if(-not (Test-LinkInstalled $PSScriptRoot $StateRoot)){
     [void]$form.ShowDialog();$form.Dispose()
     if(-not $script:installed){return}
 }
-& (Join-Path $PSScriptRoot 'Control.ps1')
+$update=& (Join-Path $PSScriptRoot 'Control.ps1')
+if($update){
+    Assert-GameClosed
+    if(-not $update.Path -or (Get-Hash $update.Path).ToLowerInvariant() -cne $update.Sha256){throw 'The update installer changed. Open CVR Link and check again.'}
+    Start-Process -FilePath $update.Path -WindowStyle Hidden
+}

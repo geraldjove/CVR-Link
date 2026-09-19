@@ -9,8 +9,8 @@ using System.Management.Automation.Runspaces;
 
 [assembly: AssemblyTitle("CVR Link")]
 [assembly: AssemblyDescription("Mouse, key and HUD settings for CVRFlatscreen")]
-[assembly: AssemblyVersion("0.2.69.0")]
-[assembly: AssemblyFileVersion("0.2.69.0")]
+[assembly: AssemblyVersion("0.2.73.0")]
+[assembly: AssemblyFileVersion("0.2.73.0")]
 static class Program {
     [STAThread] static int Main(string[] args) {
         Application.EnableVisualStyles();
@@ -32,7 +32,7 @@ static class Program {
                 local = Path.Combine(Path.GetTempPath(), "CVRLink-check-" + Guid.NewGuid().ToString("N"));
                 Environment.SetEnvironmentVariable("LOCALAPPDATA", local);
             }
-            string folder = Path.Combine(local, "CVRLink", "app", "0.2.69");
+            string folder = Path.Combine(local, "CVRLink", "app", "0.2.73");
             for (string path = folder; path != null && path.Length >= local.Length; path = Path.GetDirectoryName(path)) {
                 if (Directory.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
                     throw new IOException("CVR Link cannot install through a folder link or junction.");

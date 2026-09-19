@@ -132,33 +132,63 @@ function M.layout(items,width,height)
     end
     return result
 end
--- Injected into FlatMenu.lua only in the private build.
--- Stock LoadLoadouts falls back to MapTag; SaveLoadouts omits that fallback.
-local loadout_save_hooked,loadout_save_override
+-- Native GetLoadoutTag depends on the process's plan-to-tag registry. A
+-- replicated CVR plan can exist without that entry on a remote client.
+-- These are the inspected mod-data GetTag results, including loadout index 0.
+local loadout_tags={
+    ['ZomboyLoadoutPlanInfo /CVRFlatscreen/CVRFlatscreenPlan.CVRFlatscreenPlan']='6383627+0',
+    ['ZomboyLoadoutPlanInfo /CVRFlatscreenWW2/CVRFlatscreenPlan.CVRFlatscreenPlan']='6391827+0',
+    ['ZomboyLoadoutPlanInfo /CVRFlatscreenNinja/CVRFlatscreenPlan.CVRFlatscreenPlan']='6391829+0',
+}
+local loadout_save_hooked,loadout_tag_hooked,loadout_save_override
+local loadout_tags_reported={}
+function M.install_save_tag()
+    if loadout_tag_hooked then return end
+    RegisterHook('/Script/ZomboyVR.ZomboyGameState:GetLoadoutTag',function() end,function(context,result)
+        if result:get():ToString()~='None' then return end
+        local game=context:get()
+        if not valid(game) then return end
+        local plan=game:GetLoadoutPlan()
+        local tag=valid(plan) and loadout_tags[plan:GetFullName()]
+        if tag then
+            if not loadout_tags_reported[tag] then
+                loadout_tags_reported[tag]=true
+                print('[LoadoutSave] using native mod tag '..tag..' for '..plan:GetFullName()..'\n')
+            end
+            return FName(tag)
+        end
+        local target=loadout_save_override
+        if target and same(game,target.game) then return target.tag end
+    end)
+    loadout_tag_hooked=true
+end
+-- Retain the earlier map fallback for other untagged private/local loadouts.
+
 local function save_map_loadout(w)
-    if not state or not valid(w) then return end
+    if not state or not valid(w) then return 'no active editor' end
     local owned=false
     for _,entry in pairs(state.entries) do
         if same(entry.widget,w) and valid(entry.component) and entry.component.bIsShowing
             and same(entry.component:GetUserWidgetObject(),w) then owned=true;break end
     end
-    if not owned then return end
+    if not owned then return 'editor not current/visible' end
     local gameplay=assert(StaticFindObject('/Script/Engine.Default__GameplayStatics'))
     local game=gameplay:GetGameState(w)
-    if not valid(game) or game:GetLoadoutTag():ToString()~='None' then return end
+    if not valid(game) then return 'no game state' end
+    if game:GetLoadoutTag():ToString()~='None' then return 'native tag '..game:GetLoadoutTag():ToString() end
     local mode=gameplay:GetGameMode(w)
-    if not valid(mode) then return end
+    if not valid(mode) then return 'no game mode' end
     local cls=mode:GetClass()
     while valid(cls) and cls:GetFullName()~='BlueprintGeneratedClass /Game/Core/GameMode/CS_GameMode.CS_GameMode_C' do cls=cls:GetSuperStruct() end
-    if not valid(cls) then return end
+    if not valid(cls) then return 'different game mode' end
     -- Match the kit's ParseOption rules without a temporary returned FString.
     local options,tag=mode.OptionsString:ToString(),''
-    if options:sub(1,1)~='?' then return end
+    if options:sub(1,1)~='?' then return 'no options' end
     for pair in options:gmatch('%?([^?]*)') do
         local key,value=pair:match('^([^=]*)=(.*)$')
         if (key or pair):lower()=='maptag' then tag=value or '';break end
     end
-    if tag=='' then return end
+    if tag=='' then return 'no map tag' end
     local helper=StaticFindObject('/Game/Core/SaveGames/LoadoutSaveHelper.Default__LoadoutSaveHelper_C')
     if not valid(helper) then error('Stock loadout save helper is missing') end
     -- Re-run the stock save with its own current settings, never a stale None file.
@@ -169,17 +199,16 @@ local function save_map_loadout(w)
     if not ok then error(reason) end
     M.loadout_save_status=tag..tostring(w.TmpChooseLoadoutIndex)
     print('[Flatscreen] loadout Save routed to '..M.loadout_save_status..'\n')
+    return 'saved '..M.loadout_save_status
 end
 local function register_loadout_save(w,c)
     local cls=c.WidgetClass
     if loadout_save_hooked or not valid(cls) or cls:GetFName():ToString()~='NewLoadout_UI_Main_C' or not w:IsA(cls) then return end
-    RegisterHook('/Script/ZomboyVR.ZomboyGameState:GetLoadoutTag',function() end,function(context,result)
-        local target=loadout_save_override
-        if target and same(context:get(),target.game) and result:get():ToString()=='None' then return target.tag end
-    end)
+    M.install_save_tag()
     -- UE4SS Blueprint hooks run AFTER the function, following stock budget/save checks.
     RegisterHook('/Game/Core/UI/Loadout/NewUI/NewLoadout_UI_Main.NewLoadout_UI_Main_C:SaveLoadout',function(context)
         local ok,reason=pcall(save_map_loadout,context:get())
+
         if not ok then
             M.loadout_save_status='error'
             print('[Flatscreen] loadout Save fallback error: '..tostring(reason)..'\n')

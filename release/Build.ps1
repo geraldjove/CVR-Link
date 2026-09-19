@@ -17,7 +17,7 @@ $scope=Join-Path $Root 'scope'
 if(-not(Test-Path -LiteralPath $scope)){
     $scopeArchive=Join-Path $out 'CVRScope.zip'
     if(-not(Test-Path -LiteralPath $scopeArchive)){
-        Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/geraldjove/CVR-Link/releases/download/v0.2.69/CVRScope.zip' -OutFile $scopeArchive
+        Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/geraldjove/CVR-Link/releases/download/v0.2.73/CVRScope.zip' -OutFile $scopeArchive
     }
     if((Get-FileHash -LiteralPath $scopeArchive).Hash -ne '50E038009C5BDE708C5CEAA29DE9F6C77B5BCB32801DCB6696DD671C48DE1790'){throw 'Scope archive does not match this release.'}
     $scopeZip=[IO.Compression.ZipFile]::OpenRead($scopeArchive)

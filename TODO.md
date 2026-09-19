@@ -1,4 +1,4 @@
-# Open checks — 0.2.69
+# Open checks — 0.2.73
 
 - Test the gated public app with the updated loadout packages in the shipping game.
 - Check host and joining-client saves, repeated joins, respawns and crouch.

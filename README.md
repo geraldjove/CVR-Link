@@ -2,7 +2,7 @@
 
 Mouse, keyboard and HUD controls for Contractors VR on Windows.
 
-**CVR Link 0.2.69 — 19 September 2026.**
+**CVR Link 0.2.73 — 19 September 2026.**
 
 Author: **_mintyfishy**. [Discord](https://discord.gg/432n3NTq9f) ·
 [Downloads](https://github.com/geraldjove/CVR-Link/releases/latest).
@@ -13,7 +13,7 @@ CVR Link works with [CVRFlatscreen Standard](https://mod.io/g/contractors/m/cvrf
 [CVRFlatscreen WW2](https://mod.io/g/contractors/m/cvrflatscreen-ww2) and
 [CVRFlatscreen Ninja](https://mod.io/g/contractors/m/cvrflatscreen-ninja).
 Each is its own loadout. Choose one when hosting, or join a room using it.
-Update the Windows app to 0.2.69 and the chosen loadout to Standard 0.2.7
+Update the Windows app to 0.2.73 and the chosen loadout to Standard 0.2.7
 or WW2/Ninja 0.1.1. Standard keeps its
 existing mod.io page and subscriptions.
 
@@ -45,15 +45,20 @@ Keep earlier downloads for rollback, and close the game before switching.
 
 ## What's new
 
-- Fixed empty WW2 and Ninja loadout menus and missing equipment on join.
-- More Standard and WW2 sniper scopes use the large magnified view with
-  blurred surroundings.
-- Corrected Kobra, Aimpoint T1, Micro T1 and Reflex aiming alignment.
-- Ninja arrows and quiver no longer cross the view during sword use.
-- Empty hands rest at the sides, including the free hand while holding melee.
+- Fixed the save-tag issue that could bring back old weapons after respawning.
+  Choose your gear and press **Save** once after updating.
+- CVR Link checks for new releases when it opens.
+- The new **Updates** tab lets you check again and install a newer version.
+  Close Contractors first. The download is checked and your settings are
+  saved before the new installer opens.
+
+Download 0.2.73 once to get the updater. Older versions cannot update
+themselves. Later updates can be installed from inside the app. Checks run
+in the background, and you choose when to install. Loadout mods still
+update through Contractors. Standard 0.2.7 and WW2/Ninja 0.1.1 stay current.
 
 Normal recoil, reduced pistol camera shake, bow controls and melee reach
-stay. No keybind changes. See the full patch notes for the supported scopes.
+stay, along with the earlier scope, sight and resting-hand fixes. No keybind changes.
 
 Existing controls stay: **WASD** to move, **Shift + forward** to sprint,
 **Ctrl/C** to crouch, **R** to reload, **E** to interact, **G** to drop,
@@ -68,6 +73,8 @@ is retired; right mouse aims. Existing graphics add-ons are left alone.
 
 ## Test limits
 
+Standard and WW2 saves survived respawn in the private .72 preview's local
+bot matches. Remote-client, rejoin/restart and Ninja save tests remain.
 The source gameplay was tested in the private preview. Gerald accepted
 bare iron-sight feel, bow aim, Ninja equipment/smoke, melee reach/rotation,
 lower-right rest and Shift attacks. This is not proof that every weapon,
