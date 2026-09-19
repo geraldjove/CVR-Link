@@ -43,9 +43,10 @@ local pawn=obj({['Menu UI']=game_menu,InputMode=0,ShowMenuUI=function(self) self
     PlayerCamera=obj({K2_GetComponentLocation=function() return {X=0,Y=0,Z=170} end,
         GetForwardVector=function() return {X=1,Y=0,Z=0} end,K2_GetComponentRotation=function() return {Pitch=0,Yaw=0,Roll=0} end})})
 local holder=obj({MenuPlaced=true,MenuHost=game_menu,CVRMenu=component,GetOwner=function() return pawn end})
+local holder_root='/CVRFlatscreen'
 local holder_end
 RegisterHook=function(path,callback)
-    assert(path=='/CVRFlatscreen/BP_CVRHolder0.BP_CVRHolder0_C:ReceiveEndPlay')
+    assert(path==(holder_root or '/CVRFlatscreen')..'/BP_CVRHolder0.BP_CVRHolder0_C:ReceiveEndPlay')
     holder_end=callback
 end
 local holders_ready=true
@@ -57,7 +58,10 @@ local plan=obj({GetFullName=function() return supported and require('Room').plan
 local game=obj({GetLoadoutPlan=function() return plan end})
 local M=require('Menu')
 local standalone,headset_free=false,false
-local function tick(ready) now=now+1; return M.update(pawn,pc,game,ready~=false,standalone,headset_free) end
+local function tick(ready)
+    pawn.PlayerVest=holders_ready and holder or nil
+    holder.GetClass=function() return obj({GetFullName=function() return 'BlueprintGeneratedClass '..holder_root..'/BP_CVRHolder0.BP_CVRHolder0_C' end,GetSuperStruct=function() return nil end}) end
+    now=now+1; return M.update(pawn,pc,game,ready~=false,standalone,headset_free) end
 check(not tick(false) and pawn.InputMode==0 and not component.visible,'joining stays in VR without opening a welcome popup')
 check(not widget.OpenRequested and not game_menu.tab,'joining does not select a pause tab')
 check(widget.PlayFlatscreen.enabled==false,'flatscreen choice disabled without helper')
@@ -212,6 +216,18 @@ plan.valid=false
 enabled,unsupported=tick()
 check(not enabled and not unsupported,'menu keeps unknown loadouts locked while replication finishes')
 plan.valid=true; supported=true; game.address=504; widget=new_widget(); tick()
+for name,root in pairs(require('Room').plans) do
+    M.clear(pawn,false);holder_root=root
+    plan.GetFullName=function() return name end
+    desktop.experimental_start=false;headset_free=false;pawn.InputMode=0;widget=new_widget()
+    check(not tick() and M.hud()==widget.FlatHUD,'new loadout finds only its own local holder/page: '..root)
+    widget.ModeChoice=1;check(tick(),'new loadout manual choice enables controls: '..root)
+    check(not tick(false),'new loadout helper expiry immediately stops controls: '..root)
+    widget.ModeChoice=2;check(not tick(),'new loadout VR choice stays off: '..root)
+    widget.ModeChoice=1;tick();ending(holder,0)
+    holders_ready=false;check(tick(),'new loadout death retains local choice: '..root)
+    holders_ready=true;widget=new_widget();check(tick() and M.hud()==widget.FlatHUD,'new loadout respawn binds its replacement menu: '..root)
+end
 widget.IsValid=function() error('old menu touched after world unload') end
 holder.IsValid=function() error('old holder touched after world unload') end
 M.clear(nil,false,true)

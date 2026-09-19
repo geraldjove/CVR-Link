@@ -56,6 +56,7 @@ RequestSetInteractableAttachment=function(_,item,root,socket,t)
     end
     return true
 end}
+StaticFindObject=function(name) return name end
 local inventory=dofile('Inventory.lua')
 local state=inventory.new(pawn)
 local function begin(key)
@@ -129,7 +130,7 @@ grip.CanBeginInteraction=function(_,controller) assert(controller==right); retur
 local traces=0
 local obstruction,crate,wall_behind
 StaticFindObject=function(path)
-    assert(path=='/Script/Engine.Default__KismetSystemLibrary')
+    if path~='/Script/Engine.Default__KismetSystemLibrary' then return path end
     return {LineTraceSingle=function(_,world,start,finish,channel,complex,ignore,draw,hit,ignore_self)
         assert((world==pawn or world==crate) and start.Z==170 and finish.X==point.X and channel==0 and not complex)
         assert(ignore_self and #ignore==0)
@@ -215,5 +216,41 @@ crate.invalid=false; dropped.IsA=function() return false end
 held=nil; grip.DefaultInteractionButton=0; allowed=true; inventory.interact(state,right,camera)
 check(not held and state.interaction=='blocked','a stock ammo prop does not permit picking up unrelated items through it')
 ammo.refill=refill
+-- Private Ninja inventory checks follow.
+do
+    holsters,grips={},{};held=nil;state=inventory.new(pawn)
+    local bow=slot('Bow');local side=slot('Sidearm')
+    local sword=slot('Melee');local quiver,arrow_home=slot('Melee')
+    arrow_home.IsA=function(_,path) return path:find('/ArrowHolster.ArrowHolster_C',1,true)~=nil end
+    sword.IsA=function(_,path) return path:find('CS_MeleeWeapon.CS_MeleeWeapon_C',1,true)~=nil end
+    sword.GripComponent=sword.grip
+    local second=object({GetOwner=function() return sword end,DefaultGripType=1,bAssistGrip=false,DefaultInteractionButton=0})
+    table.insert(grips,1,second)
+    local old_grab=right.TryBeginInteractWith
+    right.TryBeginInteractWith=function(self,button,grip)
+        check(grip~=second,'secondary Katana grip cannot be selected before its main grip')
+        return old_grab(self,button,grip)
+    end
+    select('One');check(held==bow,'1 selects the Ninja Bow-tagged holster')
+    local start=now;begin('Two');now=start+.999;inventory.tick(state,right)
+    check(not held,'bow-to-sidearm swap retains the one-second delay')
+    now=start+1;inventory.tick(state,right);inventory.tick(state,right);now=now+.251;inventory.tick(state,right)
+    check(held==side,'sidearm equips after the bow is put away')
+    select('V');check(held==sword,'V selects the sword despite a later quiver using the Melee tag')
+    select('One');check(held==bow,'bow can be re-equipped after the sword')
+    held=nil;sword.attached=nil;grips={second,sword.grip}
+    for _,g in ipairs(grips) do
+        g.GetInteractable=function() return sword end
+        g.K2_GetComponentLocation=function() return {X=100,Y=0,Z=170} end
+        g.IsInteracting=function() return false end;g.CanBeginInteraction=function() return true end
+    end
+    StaticFindObject=function(path)
+        if path=='/Script/Engine.Default__KismetSystemLibrary' then return {LineTraceSingle=function() return false end} end
+        return path
+    end
+    inventory.interact(state,right,camera)
+    check(held==sword,'E pickup also uses the valid main sword grip')
+    right.TryBeginInteractWith=old_grab
+end
 print(count..' inventory and interaction checks passed')
 os.clock=real_clock

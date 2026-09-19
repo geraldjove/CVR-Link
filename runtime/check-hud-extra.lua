@@ -3,6 +3,7 @@ package.path=assert(arg[1],'Pass the runtime folder')..'/?.lua;'..package.path
 package.loaded.Ammo={};package.loaded.Inventory={}
 local now,count,id,loads,creates=0,0,0,0,0
 local missing,fail_create,unloaded=false,false,false
+local only_root
 os.clock=function() return now end
 local function check(value,label) assert(value,label);count=count+1 end
 local function object(value)
@@ -28,7 +29,7 @@ local api=object({Create=function(_,context,class,owner)
 end})
 FName=function(name) return name end
 local system={Conv_SoftClassPathToSoftClassRef=function(_,path) assert(path.SubPathString==nil,'leave nested FString at its native empty default');return path.AssetPathName end,
-LoadClassAsset_Blocking=function(_,path) assert(path=='/CVRFlatscreen/WBP_CVRHUD.WBP_CVRHUD_C');loads=loads+1;return not missing and cls or nil end}
+LoadClassAsset_Blocking=function(_,path) assert(path:match('^/CVRFlatscreen[^/]*/WBP_CVRHUD.WBP_CVRHUD_C$'));loads=loads+1;return not missing and (not only_root or path:find(only_root..'/',1,true)) and cls or nil end}
 StaticFindObject=function(path)
     if path=='/Script/UMG.Default__WidgetBlueprintLibrary' then return api end
     if path=='/Script/Engine.Default__KismetSystemLibrary' then return system end
@@ -47,14 +48,19 @@ check(reused and creates==1,'reuse viewport HUD without per-frame creation')
 local stock=widget()
 check(hud.resolve(stock,pawn,pc)==stock and creates==1,'prefer existing loadout HUD without duplication')
 hud.clear_source();missing=true
-check(hud.resolve(nil,pawn,pc)==nil and loads==2,'missing asset does not stop controls')
+check(hud.resolve(nil,pawn,pc)==nil and loads==4,'missing asset does not stop controls')
 for _=1,100 do now=now+.01;hud.resolve(nil,pawn,pc) end
-check(loads==2,'asset retries are bounded')
+check(loads==4,'asset retries are bounded')
 now=6;missing=false
 check(hud.resolve(nil,pawn,pc)~=nil and creates==2,'late asset becomes available')
 hud.clear_source();fail_create=true
 check(hud.resolve(nil,pawn,pc)==nil and hud.source_status():find('creation failed',1,true),'native creation error is contained')
 hud.clear_source();fail_create=false
+for _,root in ipairs({'/CVRFlatscreenWW2','/CVRFlatscreenNinja'}) do
+    hud.clear_source();only_root=root
+    check(hud.resolve(nil,pawn,pc)~=nil,'standalone loadout HUD works without Standard installed: '..root)
+end
+hud.clear_source();only_root=nil
 local w=hud.resolve(nil,pawn,pc)
 check(w~=first,'stop and re-enable creates a fresh local HUD')
 check(hud.animate_crosshair(w,0)==0,'resting arms stay at authored positions')

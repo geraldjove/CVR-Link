@@ -81,7 +81,7 @@ end
 -- Viewport lifetime stays in HUD.update/stop; this only supplies the widget.
 local owned,owner,next_try,source_error
 local spread,last_frame,last_crosshair=0,nil,nil
-local hud_class_path='/CVRFlatscreen/WBP_CVRHUD.WBP_CVRHUD_C'
+local hud_roots={'/CVRFlatscreen','/CVRFlatscreenWW2','/CVRFlatscreenNinja'}
 function M.hide()
     if valid(widget) then show(widget,false) end
 end
@@ -101,10 +101,11 @@ function M.resolve(stock,pawn,pc)
         -- class after GC. Keep the hidden viewport widget during freecam.
         -- Omit the broken nested FString setter's empty SubPathString field.
         local system=StaticFindObject('/Script/Engine.Default__KismetSystemLibrary')
-        local reference=system:Conv_SoftClassPathToSoftClassRef({AssetPathName=FName(hud_class_path)})
-        local cls=system:LoadClassAsset_Blocking(reference)
-        if not valid(cls) then return nil end
-        return StaticFindObject('/Script/UMG.Default__WidgetBlueprintLibrary'):Create(pawn,cls,pc)
+        for _,root in ipairs(hud_roots) do
+            local reference=system:Conv_SoftClassPathToSoftClassRef({AssetPathName=FName(root..'/WBP_CVRHUD.WBP_CVRHUD_C')})
+            local cls=system:LoadClassAsset_Blocking(reference)
+            if valid(cls) then return StaticFindObject('/Script/UMG.Default__WidgetBlueprintLibrary'):Create(pawn,cls,pc) end
+        end
     end)
     if ok and valid(result) then
         owned=result;source_error=nil

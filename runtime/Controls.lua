@@ -130,20 +130,152 @@ local function cancel_reload()
     state.reload_deadline,state.reload_gun,state.reload_plan,state.reload_started=nil,nil,nil,nil
 end
 -- Held-gun placement, scopes and obstruction.
+-- Stock mesh measurements in actor space (cm). Rear aperture centers or
+-- notch shoulders, and front-post tips; see docs/dev-ww2-preview.md and
+-- docs/ads-alignment-research.md. No mesh or camera-distance changes.
+local measured_irons={
+    SCAR={{-1.99545,0,17.9653},{37.7935,-.00005,17.9417},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SCAL/Scar-L.Scar-L_C'},
+    M16A4={{3.06,0.003775,16.53411},{54.6336,0.0557,16.7133},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/M16/M16.M16_C'},
+    AK74={{20.08935,0,13.7554},{57.1385,-0.00485,13.49265},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/AK74/AK74.AK74_C'},
+    QBZ95={{-7.79925,0,16.4242},{25.0155,0,16.2235},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/QBZ95/QBZ95.QBZ95_C'},
+    FAMAS={{-3.5,0,17.00455},{28.098,0,16.9837},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Famas/Famas.Famas_C'},
+    FNFAL={{-5.5,-0.00363,12.95942},{54.5512,-0.00445,12.9648},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/FAL/FNFAL.FNFAL_C'},
+    M4A1={{2.95,-0.01285,17.251915},{40.3938,0,17.2797},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/M4A1/M4A1.M4A1_C'},
+    AUGA3={{-0.75,0.006365,16.465655},{24.1038,0.0071,16.137},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/AUG/AUG.AUG_C'},
+    MK18={{3.67,2e-05,15.532835},{38.9673,0.00625,15.27025},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/MK18/MK18.MK18_C'},
+    CZ805={{-1.4,0.000905,17.252965},{35.4562,-0.0033,17.2186},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/CZ805/CZ805.CZ805_C'},
+    G36C={{2.58,0.00612,17.732355},{30.4326,0.0063,17.7882},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/G36C/G36C.G36C_C'},
+    SPAS12={{25.7,-0.00317,14.251335},{75.7694,-0.00265,14.2356},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SPAS12/SPAS12.SPAS12_C'},
+    P250={{-1.3028,0,10.8301},{14.6751,0.00125,10.7141},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/P250/P250_1.P250_1_C'},
+    P30={{-2.2454,0.0046,10.3128},{14.5022,0.0046,10.3107},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/P30/P30.P30_C'},
+    M1911A1={{-0.3515,0,8.6324},{15.8548,0,8.5167},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/M1911A1/m1911.m1911_C'},
+    -- Shipping Glock slide is 1.2 times the modkit mesh; use cooked sight points.
+    Glock22={{-1.904481,0.013184,9.549184},{15.184585,0.013183,9.551141},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Glock22/Glock22_1.Glock22_1_C'},
+    Deagle={{-0.96525,1.24595,10.6745},{20.4417,1.246,10.6809},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Deagle/Deagle.Deagle_C'},
+    MP5A3={{-0.0257,0.0168,16.0262},{36.3752,0.0077,15.6255},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/MP5A2/MP5A2.MP5A2_C'},
+    MP7A1={{-9.85,0,15.0737},{17.1139,-0.014,14.8013},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/MP7/MP7.MP7_C'},
+    UZIPRO={{-10.4528,0.02395,15.0163},{12.1383,0.0344,14.9231},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/UZI/UZI.UZI_C'},
+    KrissVector={{2.9,0,14.76848},{34.1254,0,14.7826},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/KrissVector/KrissVector.KrissVector_C'},
+    ASVAL={{26.2828,0,11.0706},{57.8858,0,10.543},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Val/As_Val.As_Val_C'},
+    P90={{12.72,0,21.9905},{22.3193,-0.0134,21.7301},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/P90/P90.P90_C'},
+    AACHB={{1.35,0,16.9772},{29.305,0,17.00255},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/AAC/AACHB.AACHB_C'},
+    Sako85={{41.55125,0,7.1719},{79.9319,0.0062,7.1588},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Sako85/Sako85.Sako85_C'},
+    SKS={{26.34265,0.0004,9.4565},{72.9715,0,9.2397},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SKS_Old/SKS_Old.SKS_Old_C'},
+    SVD={{29.2697,-0.0003,12.7317},{73.5042,-0.0004,12.5989},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SVD/SVD.SVD_C'},
+    -- BREN uses the shipping-only left rear aperture; the kit lacks its AIM mesh.
+    Bren={{-3.9,-2.0391,14.66239},{69.1996,-2.0605,13.481}},
+    M1A1={{-14.2,-5e-06,9.94836},{38.5384,-4.5e-05,9.940015}},
+    M3A1={{-1.98,0.00019,10.74798},{24.959515,0.0002,10.74137}},
+    M712={{1.20529,-8.5e-05,9.00452},{23.79564,-8e-05,9.00144}},
+    MauserC96={{1.19867,0,9.38505},{26.66238,0,9.38114}},
+    MP40={{17.71281,0,15.4162},{62.16338,-1e-05,14.75972}},
+    P38={{-1.36029,0.02657,6.045635},{16.83919,0.00926,6.00178}},
+    PPSh41={{12.3778,0.010155,7.99715},{49.64243,0.00981,7.94759}},
+    SjogrenInertia={{12.23083,-0.091015,5.36266},{88.58083,-0.091025,5.39998}},
+    STG44={{16.18643,0,14.39774},{61.55316,-5e-06,14.95355}},
+    SVT40={{24.60917,0.0634,7.48274},{73.22399,0.05636,7.12401}},
+    TT33={{-1.18517,0,8.21765},{14.78204,5e-06,7.96634}},
+    M1897={{7.21332,-4e-05,6.6899},{72.4559,-1.5e-05,6.67995},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M1897/M1897.M1897_C'},
+    M1941={{6.1,-9e-05,6.63909},{84.32443,-0.000575,6.68119},
+        path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M1941/M1941.M1941_C'},
+    M1Garand={{7.284,.0043,7.3805},{76.9457,.00105,7.8277}},
+    Kar98={{24.1948,0,7.6439},{74.2814,0,7.6527}},
+    LeeEnfield={{5.9349,.0115,7.7394},{78.751,.0002,7.6842}},
+    DeLisle={{29.1632,0,7.58375},{59.8453,.00165,7.5843}},
+    Mosin={{21.4549,.00115,9.06073},{84.3506,.00365,9.6467}},
+}
+local function iron_points(gun)
+    for name,points in pairs(measured_irons) do
+        local path=points.path or '/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/'..name..'/WW2_'..name..'.WW2_'..name..'_C'
+        if gun:IsA(path) then
+            -- An added muzzle has its own firing transform. Leave unmeasured
+            -- attachment combinations on their existing path.
+            for _,muzzle in ipairs(FindAllOf('ZomboyGunMuzzleAttachmentActor') or {}) do
+                if same(muzzle:GetOwner(),gun) then return end
+            end
+            return points
+        end
+    end
+end
+local function iron_reference(gun)
+    local result=transform(gun.DefaultSightRelativeTransform)
+    local points=iron_points(gun)
+    if not points then return result end
+    local rear,front=points[1],points[2]
+    local x,y,z=front[1]-rear[1],front[2]-rear[2],front[3]-rear[3]
+    local pitch,yaw=math.atan(z,math.sqrt(x*x+y*y))*.5,math.atan(y,x)*.5
+    local sp,cp,sy,cy=math.sin(pitch),math.cos(pitch),math.sin(yaw),math.cos(yaw)
+    result.Rotation={X=sp*sy,Y=-sp*cy,Z=cp*sy,W=cp*cy}
+    -- Retain the gun's existing ADS distance; move that reference onto the line.
+    local t=(result.Translation.X-rear[1])/x
+    result.Translation.Y,result.Translation.Z=rear[2]+t*y,rear[3]+t*z
+    state.iron_gun=gun
+    return result
+end
+local function pose_muzzle(gun)
+    local saved=state.gun_drive
+    return transform(saved and same(saved.gun,gun) and saved.muzzle or gun.DefaultMuzzleRelativeTransform)
+end
+local function update_iron_muzzle(gun)
+    local saved=state.gun_drive
+    if not saved or not saved.muzzle or not same(saved.gun,gun) then return end
+    local amount=same(state.iron_gun,gun) and not state.zoom_mode and state.sight and state.ads_amount or 0
+    local rotation=blend_reference(saved.muzzle,state.sight or saved.muzzle,amount).Rotation
+    -- Keep the native bullet origin and recoil. Cancel the measured model
+    -- tilt in the firing reference so shots still follow the front post.
+    local target=gun.DefaultMuzzleRelativeTransform.Rotation
+    for _,axis in ipairs({'X','Y','Z','W'}) do target[axis]=rotation[axis] end
+end
+
 local function hip_reach(gun)
     local category=valid(gun) and gun.Category:ToString()
     return (category=='Carbine' or category=='Rifle' or category=='Sniper') and 20 or 35
 end
 local function restore_gun_drive()
     local saved=state.gun_drive
-    if saved and valid(saved.gun) then saved.gun.bIsPhysicalInteractible=saved.physical end
+    if saved and valid(saved.gun) then
+        saved.gun.bIsPhysicalInteractible=saved.physical
+        if saved.muzzle then
+            local target=saved.gun.DefaultMuzzleRelativeTransform.Rotation
+            for _,axis in ipairs({'X','Y','Z','W'}) do target[axis]=saved.muzzle.Rotation[axis] end
+        end
+    end
     state.gun_drive=nil
 end
 local function update_gun_drive(gun)
     if not valid(gun) or not same(gun:GetOwner(),state.pawn) or M.ui_active(state.pawn) then gun=nil end
     if state.gun_drive and not same(state.gun_drive.gun,gun) then restore_gun_drive() end
     if valid(gun) and not state.gun_drive then
-        state.gun_drive={gun=gun,physical=gun.bIsPhysicalInteractible}
+        state.gun_drive={gun=gun,physical=gun.bIsPhysicalInteractible,
+            muzzle=iron_points(gun) and transform(gun.DefaultMuzzleRelativeTransform) or nil}
         -- TickTransform then uses its stock direct-pose path, not a physics
         -- handle which sags between our fixed flatscreen pose writes.
         gun.bIsPhysicalInteractible=false
@@ -264,15 +396,48 @@ local function complete_reload(gun)
     end
     cancel_reload()
 end
+-- Private: run the stock standing-calibration calculation once per activation.
+local function calibrate_join_height(pawn,camera,down,menu)
+    if state.height_attempted then return end
+    if menu or state.crouched or down.LeftControl or down.C
+        or pawn:GetIsSliding() or not pawn.CharacterMovement:IsMovingOnGround() then
+        state.height_ready_at=nil;return
+    end
+    state.height_ready_at=state.height_ready_at or os.clock()+.3
+    if os.clock()<state.height_ready_at then return end
+    local info=pawn.PlayerBodyCalibrationInfo
+    local height,eye=info.PlayerHeight,camera.RelativeLocation.Z
+    if type(height)~='number' or height~=height or height<80 or height>250
+        or type(eye)~='number' or eye~=eye or eye<50 or eye>250 then return end
+    local offset=height-(eye+12) -- CalibrationUI adds 12 cm above the eye.
+    state.height_original={PlayerHeight=height,FloorOffset=info.FloorOffset}
+    state.height_attempted=true -- A rejected readback must not send an RPC every frame.
+    pawn:OwnerSetPlayerHeight({PlayerHeight=height,FloorOffset=offset})
+    local result=pawn.PlayerBodyCalibrationInfo
+    if math.abs(result.PlayerHeight-height)<.01 and math.abs(result.FloorOffset-offset)<.01 then
+        state.height_applied={PlayerHeight=height,FloorOffset=offset}
+    end
+end
+local function restore_join_height()
+    if not state.height_applied or not valid(state.pawn) then return end
+    local current,applied=state.pawn.PlayerBodyCalibrationInfo,state.height_applied
+    -- A later manual calibration belongs to the player; leave it alone.
+    if math.abs(current.PlayerHeight-applied.PlayerHeight)<.01 and math.abs(current.FloorOffset-applied.FloorOffset)<.01 then
+        state.pawn:OwnerSetPlayerHeight(state.height_original)
+    end
+end
+
 function M.stop(unloaded)
     scopeview.shutdown(unloaded)
     if unloaded then placement.stop(true); state=nil; return end
     if not state then return end
+    restore_join_height()
     restore_gun_drive()
     stop_scope()
     cancel_reload()
     placement.stop()
     if state.pc then actions.stop(state.action,state.pc,state.left,state.right) end
+    actions.shutdown(state.action)
     release_fire()
     release_support()
     if valid(state.camera) then state.camera:SetFieldOfView(state.fov) end
@@ -362,7 +527,7 @@ function M.start(pawn)
         end
     end
     state.inventory=inventory.new(pawn)
-    state.action=actions.new()
+    state.action=actions.new(pawn,state.left,state.right)
     return true
 end
 local function place(component, camera, forward, sideways, height, rotation)
@@ -411,12 +576,15 @@ local function align_grip(controller,gun,is_right,base)
     return true
 end
 local function sight_reference(gun)
+    state.iron_gun=nil
     for _,sight in ipairs(FindAllOf('ZomboyGunSightAttachmentActor') or {}) do
-        if same(sight:GetOwner(),gun) then
+        if valid(sight) and same(sight:GetOwner(),gun)
+            and same(sight:GetActorAttachingTo(),gun)
+            and not sight:IsA('/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/ZomboyIronSight.ZomboyIronSight_C') then
             return relative(transform(sight:GetSightTransform()),transform(gun:GetTransform())),sight
         end
     end
-    return transform(gun.DefaultSightRelativeTransform)
+    return iron_reference(gun)
 end
 local function stationary_open(pawn)
     return valid(pawn.StationaryUI) and pawn.StationaryUI.bIsShowing or false
@@ -446,6 +614,7 @@ end
 
 function M.tick(pawn,pc,camera,rotation,dx,dy)
     if not state then return end
+    actions.prepare(state.action)
     state.ads_frame=nil
     state.pc=pc
     state.view=copy(rotation,{'Pitch','Yaw','Roll'})
@@ -524,6 +693,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     local over_ui=not flat and state.pointer_override~=false and state.pointer.WidgetInteraction:IsOverHitTestVisibleWidget()
     aiming=down.RightMouseButton and valid(gun) and not menu and not over_ui and not state.inventory.pending and not state.reload_deadline and not state.shell_raise
     state.aiming=aiming and not state.zoom_mode and not state.reload_deadline and not state.shell_raise
+    calibrate_join_height(pawn,camera,down,menu)
     local crouch_down=down.LeftControl or down.C
     local crouch=state.crouched and crouch_down and not menu or false
     if crouch_down and not state.crouch_down and not menu and os.clock()>=(state.next_crouch or 0) then crouch=true end
@@ -556,7 +726,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         end
     end
     -- SetSprint can auto-run in the stock game. Only request it with forward input.
-    local sprint=down.LeftShift and down_key(pc,'W') and not down_key(pc,'S') and not menu and not aiming
+    local sprint=down.LeftShift and down_key(pc,'W') and not down_key(pc,'S') and not menu and not aiming and not (actions.is_bow(hand_item) and down.RightMouseButton)
     if sprint and not crouch and not pawn:GetIsSliding() then
         if not pawn:IsSprinting() then pawn:SetSprint(true,false) end
         state.sprint_owned=true
@@ -578,7 +748,8 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     state.sprint_blocked=running
     state.sprint_aim_blocked=running or now<(state.sprint_aim_ready_at or 0)
     if (menu or over_ui or state.sprint_blocked) and state.firing then release_fire() end
-    local cancelling=menu or over_ui or state.sprint_blocked or state.wall_blocked or state.inventory.pending
+    local sprint_action_blocked=state.sprint_blocked and not actions.is_melee(hand_item)
+    local cancelling=menu or over_ui or sprint_action_blocked or state.wall_blocked or state.inventory.pending
         or pressed.G or pressed.One or pressed.Two or pressed.Three or pressed.Four or pressed.Five or pressed.V or pressed.R
     if state.shell_raise and (cancelling or not same(state.shell_raise.gun,gun)) then state.shell_raise=nil end
     if pressed.LeftMouseButton and not cancelling and state.reload_plan and state.reload_plan.kind=='shell'
@@ -597,7 +768,7 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         if over_ui then state.pointer:PressPointerKey(key('LeftMouseButton')); state.click=true
         elseif not cancelling and not state.reload_deadline and not state.shell_raise then
             if not actions.press(state.action,inventory.held(state.right),pc,state.left,state.right) then
-                trigger_request=true
+                trigger_request=valid(gun) -- Empty hands must not trigger nearby vest pouches.
             end
         end
     end
@@ -651,7 +822,10 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
             state.reload_plan,state.reload_gun,state.reload_deadline=plan,gun,os.clock()+(plan.delay or 1.5)
         end
     end
-    update_gun_drive(gun)
+    -- Melee uses the same native direct hold as guns, so physics cannot pull
+    -- the blade away from the requested cut. The existing cleanup restores it.
+    local driven_item=inventory.held(state.right)
+    update_gun_drive(actions.is_melee(driven_item) and driven_item or gun)
     cycle_bolt(gun,menu or state.reload_deadline~=nil or state.inventory.pending~=nil)
     if not same(state.aim_weapon,gun) then
         state.aim_weapon,state.ads_amount,state.ads_goal,state.sight,state.sight_actor=gun,0,nil,nil,nil
@@ -681,6 +855,15 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
             forward=copy(camera:GetForwardVector(),{'X','Y','Z'}),
             right=copy(camera:GetRightVector(),{'X','Y','Z'}),up=copy(camera:GetUpVector(),{'X','Y','Z'})}
     end
+    local bow_aim=actions.is_bow(inventory.held(state.right)) and down.RightMouseButton
+        and not menu and not over_ui and not state.inventory.pending and not state.sprint_aim_blocked
+    local bow_goal=bow_aim and 1 or 0
+    if state.bow_goal~=bow_goal then
+        state.bow_from,state.bow_goal,state.bow_started=state.bow_aim or 0,bow_goal,os.clock()
+    end
+    local bow_t=math.max(0,math.min(1,(os.clock()-state.bow_started)/.2))
+    state.bow_aim=state.bow_from+(bow_goal-state.bow_from)*bow_t*bow_t*(3-2*bow_t)
+    if actions.is_bow(inventory.held(state.right)) then camera:SetFieldOfView(field_of_view*(1-.1*state.bow_aim)) end
     local output={Rotation={},Translation={},Scale3D={}}
     state.aim_point=nil
     -- Retain native barrel direction and fixed grip placement.
@@ -691,18 +874,19 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
         local slot=state.inventory.slots[tag]
         if slot and same(item,slot.item) then gadget=true end
     end
-    state.hands_hidden=gadget and not menu
+    state.hands_hidden=(gadget or actions.is_bow(item) and (bow_aim or state.bow_aim>0)) and not menu
     if state.hand_mesh and valid(state.hand_mesh.component) then
         local visible=state.hand_mesh.visible and not state.hands_hidden
         if state.hand_mesh.component.bVisible~=visible then state.hand_mesh.component:SetVisibility(visible,false) end
     end
+    update_iron_muzzle(gun)
     state.wall_sample=true
     local applied,base=M.apply_gun_pose(item,output)
     state.wall_sample=false
     update_scope(gun)
     if applied then
         item:K2_SetActorLocationAndRotation(output.Translation,rotator(output.Rotation),false,{},true)
-        if valid(gun) and not menu then align_grip(state.right,gun,true,base) end
+        if (valid(gun) or actions.is_bow(item) or actions.is_melee(item)) and not menu then align_grip(state.right,item,true,base) end
         if valid(gun) and valid(gun.ForeGripComponent) then
             local grip=gun.ForeGripComponent:K2_GetComponentLocation()
             state.left:K2_SetWorldLocationAndRotation(copy(grip,{'X','Y','Z'}),state.view,false,{},true)
@@ -721,7 +905,9 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     if trigger_request and not state.wall_blocked and not state.bolt_deadline then
         state.right:OnTriggerAxisChanged(1); state.firing=true
     end
-    actions.tick(state.action,down.LeftMouseButton,not menu and not over_ui,pc,state.left,state.right,camera)
+    actions.tick(state.action,down.LeftMouseButton,not menu and not over_ui and not sprint_action_blocked
+        and not state.inventory.pending and not pressed.G and not pressed.R,pc,state.left,state.right,camera)
+    actions.follow(state.action,inventory.held(state.right),not menu and not state.inventory.pending)
     send_controller_poses()
 end
 function M.apply_local_grab(item,output)
@@ -763,7 +949,20 @@ function M.apply_gun_pose(gun,output)
             state.item_pose=gun
         end
         reference=state.item_reference
-        forward,sideways,height=45+actions.offset(state.action),12,-10
+        forward,sideways,height=45,12,-10
+        if actions.is_bow(gun) then
+            -- Stock arrow's forward axis is the bow's X axis. Keep the arrow
+            -- line at eye height in aim, with a small lateral view of the bow.
+            local a=state.bow_aim or 0
+            reference={Rotation={X=0,Y=0,Z=0,W=1},Translation={X=0,Y=0,Z=4.510242}}
+            forward,sideways,height=58,12*(1-a)+3*a,-10*(1-a)
+        elseif actions.is_melee(gun) then
+            local x,y,z,_,pitch,roll=actions.slash(state.action)
+            forward,sideways,height=forward+x,sideways+y,height+z
+            local p,r=math.rad(pitch/2),math.rad(roll/2)
+            grip_turn=multiply({X=0,Y=math.sin(p),Z=0,W=math.cos(p)},
+                {X=math.sin(r),Y=0,Z=0,W=math.cos(r)})
+        end
         if gun:IsA('/Game/Core/VRInteractables/Throwables/Grenades/ZomboyGrenadeBP.ZomboyGrenadeBP_C') then
             -- Match the wrist pitch of the confirmed rifle grip using each grenade's own hand reference.
             grip_turn={X=0,Y=-math.sin(math.rad(40)),Z=0,W=math.cos(math.rad(40))}
@@ -771,7 +970,7 @@ function M.apply_gun_pose(gun,output)
             grip_turn={X=0,Y=0,Z=1,W=0}
         end
     else
-        reference=transform(gun.DefaultMuzzleRelativeTransform)
+        reference=pose_muzzle(gun)
         -- Use the closer rifle reach (other guns stay at 35 cm). A shared muzzle distance
         -- stretches the arms on short guns and crowds the grip on long guns.
         local grip=relative(transform(gun.PrimGripComponent:K2_GetComponentToWorld()),transform(gun:GetTransform()))
@@ -867,7 +1066,7 @@ function M.apply_gun_pose(gun,output)
         -- Follow native sight recoil without changing mouse aim or the horizon.
         local sight_view=multiply(result.Rotation,state.sight.Rotation)
         local rotation=rotator(blend_reference({Rotation=camera_view,Translation=p},
-            {Rotation=sight_view,Translation=p},aim*(gun.Category:ToString()=='Pistol' and .35 or 1)).Rotation)
+            {Rotation=sight_view,Translation=p},aim*(gun.Category:ToString()=='Pistol' and .0175 or 1)).Rotation)
         rotation.Roll=0
         camera:K2_SetWorldRotation(rotation,false,{},true)
     end
@@ -908,7 +1107,7 @@ function M.status()
         ..'|ads_blend='..tostring(state.ads_amount or 0)..'|hands_hidden='..tostring(state.hands_hidden or false)
         ..'|support='..tostring(valid(gun) and valid(gun.ForeGripComponent) and gun.ForeGripComponent:IsInteracting() or false)
         ..'|fire_mode='..tostring(valid(gun) and gun:GetCurrentFiringMode() or 'none')
-        ..'|crouch_requested='..tostring(state.crouched or false)
+        ..'|height_calibrated='..tostring(state.height_applied~=nil)..'|crouch_requested='..tostring(state.crouched or false)
         ..'|inventory='..state.inventory.message
         ..'|interaction='..tostring(state.inventory.interaction or 'ready')
         ..'|wall_blocked='..tostring(state.wall_blocked or false)

@@ -146,6 +146,93 @@ for _,size in ipairs(sizes) do
     end
     check(true,'layout fits '..size[1]..'x'..size[2])
 end
+-- Runs inside the real staged FlatMenu test, including discovery/stop/replacement.
+do
+    local hooks,registrations={},0
+    RegisterHook=function(path,pre,post)
+        registrations=registrations+1
+        assert(not path:find('SaveHelper',1,true),'never hook a static library')
+        hooks[path]=post or pre
+    end
+    local function wrapped(value) return {get=function() return value end} end
+    FName=function(text) return {ToString=function() return text end} end
+    local tag_path='/Script/ZomboyVR.ZomboyGameState:GetLoadoutTag'
+    local save_path='/Game/Core/UI/Loadout/NewUI/NewLoadout_UI_Main.NewLoadout_UI_Main_C:SaveLoadout'
+    local game=object({tag='None'})
+    game.GetLoadoutTag=function(self)
+        local value=FName(self.tag)
+        return hooks[tag_path] and hooks[tag_path](wrapped(self),wrapped(value)) or value
+    end
+    local mode_class=object({name='BlueprintGeneratedClass /Game/Core/GameMode/CS_GameMode.CS_GameMode_C'})
+    local mode=object({OptionsString=FName('?MapTag=map_Lumber?GameMode=FreeRoam'),GetClass=function() return mode_class end})
+    local mode_available,fail=true,false
+    local saves,writes,current={},0,{gun='CZ805',sidearm='None',melee='Katana',gadget='Claymore'}
+    local helper=object({SaveLoadouts=function(_,index,context)
+        if fail then error('test native save failure') end
+        local tag=game:GetLoadoutTag():ToString()
+        check(tag=='map_Lumber','fallback supplies the same map tag used by stock LoadLoadouts')
+        local other=object({tag='None',GetLoadoutTag=game.GetLoadoutTag})
+        check(other:GetLoadoutTag():ToString()=='None','temporary override cannot affect another GameState')
+        writes=writes+1;saves[tag..index]=current
+    end})
+    local previous_find=StaticFindObject
+    StaticFindObject=function(path)
+        if path=='/Script/Engine.Default__GameplayStatics' then return {
+            GetGameState=function() return game end,
+            GetGameMode=function() return mode_available and mode or nil end} end
+        if path=='/Game/Core/SaveGames/LoadoutSaveHelper.Default__LoadoutSaveHelper_C' then return helper end
+        return previous_find(path)
+    end
+    local panel,w=component('LoadoutMain',763.5,510.5)
+    w.TmpChooseLoadoutIndex=0
+    panel.WidgetClass=object({name='NewLoadout_UI_Main_C'})
+    w.IsA=function(_,cls) return cls==panel.WidgetClass end
+    children[#children+1]=panel
+    pawn.InputMode=1;check(flat.update(pawn,pc,true),'loadout page is discovered in the local flat tree')
+    check(registrations==2,'register only instance tag and Blueprint Save hooks')
+    saves.map_Lumber0={gun='MK18'};saves.None0=current
+    hooks[save_path](wrapped(w))
+    check(saves.map_Lumber0==current and saves.None0==current,'Save corrects the map slot while preserving the stock None slot')
+    check(game:GetLoadoutTag():ToString()=='None','game tag is unchanged outside the stock save call')
+    pawn.InputMode=0;flat.update(pawn,pc,false)
+    check(saves.map_Lumber0.gun=='CZ805' and saves.map_Lumber0.gadget=='Claymore','closing retains the complete saved loadout')
+    local before=writes;hooks[save_path](wrapped(w));check(writes==before,'no save work after controls/menu stop')
+    pawn.InputMode=1;flat.update(pawn,pc,true)
+    check(registrations==2,'reopening does not register duplicate hooks')
+    current={gun='M4A1'};w.TmpChooseLoadoutIndex=2;hooks[save_path](wrapped(w))
+    check(saves.map_Lumber2==current and saves.map_Lumber0.gun=='CZ805','each loadout slot stays separate')
+    before=writes
+    game.tag='loadout_standard';hooks[save_path](wrapped(w))
+    game.tag='loadout_ninja';hooks[save_path](wrapped(w))
+    check(writes==before,'tagged Standard and Ninja saves stay on the stock path')
+    game.tag='None';mode_available=false;hooks[save_path](wrapped(w))
+    check(writes==before,'client without the stock GameMode fallback is not assigned a guessed tag')
+    mode_available=true;mode.OptionsString=FName('');hooks[save_path](wrapped(w))
+    check(writes==before,'missing map tag does not overwrite a save')
+    mode.OptionsString=FName('?MapTag?MapTag=map_Lumber');hooks[save_path](wrapped(w))
+    check(writes==before,'first empty tag wins, matching stock ParseOption')
+    mode.OptionsString=FName('map_Lumber?MapTag=map_Lumber');hooks[save_path](wrapped(w))
+    check(writes==before,'non-option prefix is rejected, matching stock ParseOption')
+    mode.OptionsString=FName('?OtherMapTag=wrong?MAPTAG=map_Lumber?MapTag=wrong');hooks[save_path](wrapped(w))
+    check(writes==before+1,'case-insensitive exact option key uses the first match')
+    before=writes
+    mode.OptionsString=FName('?MapTag=map_Lumber')
+    local alien=object({TmpChooseLoadoutIndex=0});hooks[save_path](wrapped(alien))
+    check(writes==before,'unowned widget cannot trigger fallback')
+    panel.bIsShowing=false;hooks[save_path](wrapped(w));panel.bIsShowing=true
+    check(writes==before,'hidden editor cannot trigger fallback')
+    panel.widget=alien;hooks[save_path](wrapped(w));panel.widget=w
+    check(writes==before,'replaced widget cannot trigger fallback')
+    fail=true;hooks[save_path](wrapped(w));fail=false
+    check(game:GetLoadoutTag():ToString()=='None' and writes==before,'native save error always clears temporary tag')
+    check(flat.active() and flat.status():find('|loadout_save=error',1,true),'save failure is reported without disabling controls')
+    hooks[save_path](wrapped(w));check(writes==before+1,'next Save can retry after an error')
+    flat.stop(true);hooks[save_path](wrapped(w));check(writes==before+1,'travel drops all saved widget references')
+    -- Restore this test's component state without accessing a freed world.
+    panel.space=0;map.space=0;nav.space=0;score.space=0;social.space=0;pc.bShowMouseCursor=false
+    children[#children]=nil;StaticFindObject=previous_find
+end
+
 local original=pc.DeprojectScreenPositionToWorld
 pc.DeprojectScreenPositionToWorld=function() error('native call unavailable') end
 check(not flat.update(pawn,pc,true) and not flat.active(),'a native failure rolls back and preserves the stock menu')

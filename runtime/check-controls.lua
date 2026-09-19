@@ -16,6 +16,7 @@ local function component()
     return object({RelativeLocation={X=1,Y=2,Z=3},RelativeRotation={Pitch=4,Yaw=5,Roll=6},
         tick=true,bUseWithoutTracking=false,bDisableLowLatencyUpdate=false,PendingTrackingMode=0,
         bReplicateWithoutTracking=true,PlayerIndex=0,CurrentTrackingStatus=2,ControllerNetUpdateRate=100,
+        GetAttachParent=function() return nil end,
         ReplicatedControllerTransform={Position={}},
         Server_SendControllerTransform=function(self,packet)
             -- 3.0.1 uses the outer table for nested Position, then leaves the
@@ -58,13 +59,15 @@ local pointer=object({RootComponent=component(),bIsEnabled=false,
     PressPointerKey=function(_,key) assert(key.KeyName=='LeftMouseButton'); presses=presses+1 end,
     ReleasePointerKey=function() releases=releases+1 end,
     ScrollWheel=function(_,value) pointer_scroll=value end})
-local camera=object({FieldOfView=90,SetFieldOfView=function(self,value) self.FieldOfView=value end,
+local camera=object({RelativeLocation={X=0,Y=0,Z=170},FieldOfView=90,SetFieldOfView=function(self,value) self.FieldOfView=value end,
     K2_SetWorldRotation=function(self,value) self.render_rotation=value; self.render_writes=(self.render_writes or 0)+1 end,
     K2_GetComponentLocation=function() return {X=0,Y=0,Z=170} end,
     GetForwardVector=function() return {X=1,Y=0,Z=0} end,
     GetRightVector=function() return {X=0,Y=1,Z=0} end,
     GetUpVector=function() return {X=0,Y=0,Z=1} end})
-local pawn=object({RightMotionController=right,LeftMotionController=left,RightUIInteractionActor=pointer,
+local pawn=object({PlayerBodyCalibrationInfo={PlayerHeight=180,FloorOffset=0},
+    OwnerSetPlayerHeight=function(self,info) self.PlayerBodyCalibrationInfo={PlayerHeight=info.PlayerHeight,FloorOffset=info.FloorOffset} end,
+    RightMotionController=right,LeftMotionController=left,RightUIInteractionActor=pointer,
     PlayerCamera=camera,InputMode=0,
     GetHandHoldingGun=function(_,is_right) if is_right then return held and not held.nongun and held or nil else return left_held end end,
     ShowMenuUI=function(self,hand,anim) assert(hand and anim=='None'); self.InputMode=1 end,
@@ -158,7 +161,7 @@ end
 local own,foreign,far=gun(pawn,75),gun(object({}),20),gun(pawn,500)
 own.DefaultMuzzleRelativeTransform=rifle.DefaultMuzzleRelativeTransform
 own.K2_SetActorLocationAndRotation=rifle.K2_SetActorLocationAndRotation
-local sight=object({GetOwner=function() return rifle end,
+local sight=object({GetOwner=function() return rifle end,GetActorAttachingTo=function() return rifle end,
     GetSightTransform=function() return transform({X=104,Y=0,Z=178}) end})
 local function indicator(grip,usage,score)
     return object({HandUsage=usage,GetOwner=function() return grip:GetOwner() end,
@@ -180,6 +183,7 @@ local lower_priority=indicator(rifle.PrimGripComponent,2,0)
 lower_priority.GetTargetControllerTransformWorldSpace=function() error('lower priority indicator selected') end
 FindAllOf=function(name)
     if name=='ZomboyHandIndicatorComponent' then return {wrong_hand,foreign_indicator,lower_priority,primary_indicator,support_indicator} end
+    if name=='ZomboyGunMuzzleAttachmentActor' then return {} end
     if name=='ZomboyInteractableHolster' then return {} end
     if name=='ZomboyGunSightAttachmentActor' then return {sight} end
     if name=='ZomboyInteractionComponent' then return {foreign.PrimGripComponent,far.PrimGripComponent,own.PrimGripComponent} end
@@ -427,8 +431,8 @@ for _,degrees in ipairs({6,20,0}) do
     burst.Rotation={X=0,Y=-math.sin(math.rad(degrees)/2),Z=0,W=math.cos(math.rad(degrees)/2)}
     controls.capture_recoil(rifle,original,burst)
     controls.apply_gun_pose(rifle,output)
-    check(math.abs(camera.render_rotation.Pitch-degrees*.35)<.05 and camera.render_rotation.Roll==0,
-        'pistol camera follows about 35 percent of kick and recovery '..degrees)
+    check(math.abs(camera.render_rotation.Pitch-degrees*.05*.35)<.005 and camera.render_rotation.Roll==0,
+        'pistol camera movement is about five percent of its previous kick and recovery '..degrees)
     check(math.abs(output.Rotation.Y-burst.Rotation.Y)<.00001 and math.abs(output.Rotation.W-burst.Rotation.W)<.00001,
         'pistol keeps full native gun recoil '..degrees)
     local pitch=camera.render_rotation.Pitch
@@ -439,6 +443,19 @@ end
 rifle.Category={ToString=function() return 'Carbine' end}
 controls.capture_recoil(rifle,original,kicked);controls.apply_gun_pose(rifle,output)
 check(math.abs(camera.render_rotation.Pitch-6)<.00001,'rifle resumes full camera follow with no pistol damping retained')
+input();now=now+.201;tick()
+rifle.Category={ToString=function() return 'Pistol' end}
+controls.capture_recoil(rifle,original,original);controls.apply_gun_pose(rifle,output)
+local resting_pistol={X=output.Translation.X,Y=output.Translation.Y,Z=output.Translation.Z}
+local hip_kick=transform({X=998,Y=403,Z=202})
+controls.capture_recoil(rifle,original,hip_kick);controls.apply_gun_pose(rifle,output)
+check(math.abs(output.Translation.X-resting_pistol.X+2)<.00001
+    and math.abs(output.Translation.Y-resting_pistol.Y-3)<.00001
+    and math.abs(output.Translation.Z-resting_pistol.Z-2)<.00001,'hip pistol kickback retains full native displacement on all three axes')
+local hip_pistol_camera_writes=camera.render_writes
+controls.apply_local_grab(rifle,native_pass)
+check(camera.render_writes==hip_pistol_camera_writes,'hip pistol recoil adds no camera shake')
+rifle.Category={ToString=function() return 'Carbine' end}
 input();now=now+.201;tick();controls.apply_gun_pose(rifle,output)
 
 
@@ -998,5 +1015,404 @@ do
     rifle.bIsPhysicalInteractible=true
 end
 
+do
+    controls.stop();held=rifle;pawn.InputMode=0;keys={}
+    local old_isa,old_find=rifle.IsA,FindAllOf
+    local old_muzzle,old_sight=rifle.DefaultMuzzleRelativeTransform,rifle.DefaultSightRelativeTransform
+    local name,with_scope,with_muzzle='M1Garand',false,false
+    rifle.IsA=function(self,path) return path:find('/'..name..'/WW2_'..name..'.',1,true)~=nil or old_isa(self,path) end
+    local muzzle_attachment=object({GetOwner=function() return rifle end})
+    FindAllOf=function(kind)
+        if kind=='ZomboyGunSightAttachmentActor' then return with_scope and {sight} or {} end
+        if kind=='ZomboyGunMuzzleAttachmentActor' then return with_muzzle and {muzzle_attachment} or {} end
+        return old_find(kind)
+    end
+    local measurements={
+        {'M1Garand',5.707247,7.876582,{7.284,.0043,7.3805},{76.9457,.00105,7.8277}},
+        {'Kar98',.818310,6.431973,{24.1948,0,7.6439},{74.2814,0,7.6527}},
+        {'Mosin',.818310,6.431973,{21.4549,.00115,9.06073},{84.3506,.00365,9.6467}},
+        {'LeeEnfield',-4.959492,9.720782,{5.9349,.0115,7.7394},{78.751,.0002,7.6842}},
+        {'DeLisle',.818310,6.431973,{29.1632,0,7.58375},{59.8453,.00165,7.5843}},
+    }
+    local function firing_aligned()
+        local direction=rotated(output.Rotation,rotated(rifle.DefaultMuzzleRelativeTransform.Rotation,{X=1,Y=0,Z=0}))
+        return math.abs(direction.X-1)<.00001 and math.abs(direction.Y)<.00001 and math.abs(direction.Z)<.00001
+    end
+    local function aim()
+        input();input({RightMouseButton=true});now=now+.21;tick();controls.apply_gun_pose(rifle,output)
+    end
+    for _,row in ipairs(measurements) do
+        name=row[1]
+        rifle.DefaultMuzzleRelativeTransform=transform({X=81,Y=0,Z=5})
+        rifle.DefaultSightRelativeTransform=transform({X=row[2],Y=0,Z=row[3]})
+        controls.start(pawn);aim()
+        local eye=camera:K2_GetComponentLocation()
+        for i=4,5 do
+            local point=rotated(output.Rotation,{X=row[i][1],Y=row[i][2],Z=row[i][3]})
+            check(math.abs(output.Translation.Y+point.Y-eye.Y)<.001 and math.abs(output.Translation.Z+point.Z-eye.Z)<.001,
+                name..' measured '..(i==4 and 'rear' or 'front')..' lies on the camera sight line')
+        end
+        check(firing_aligned(),name..' bullet direction remains along mouse aim after model tilt')
+        check(rifle.DefaultSightRelativeTransform.Translation.Z==row[3] and rifle.DefaultMuzzleRelativeTransform.Translation.Z==5,
+            name..' stock sight data and native local bullet origin are not rewritten')
+        controls.apply_local_grab(rifle,native_pass)
+        check(math.abs(native_pass.Translation.Z-output.Translation.Z)<.00001,name..' native grab uses the same corrected pose')
+        input();now=now+.1;tick();controls.apply_gun_pose(rifle,output)
+        check(firing_aligned(),name..' ADS exit keeps firing direction aligned during the blend')
+        now=now+.11;tick()
+        check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,name..' hip fire restores the stock muzzle rotation')
+        controls.stop()
+    end
+    name='M1Garand';controls.start(pawn);aim();input({Tab=true})
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'menu restores temporary WW2 firing reference')
+    input();input({Tab=true});input();aim();controls.stop()
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'stopping for VR restores temporary WW2 firing reference')
+    controls.start(pawn);aim();input({G=true})
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'dropping a WW2 gun restores its firing reference')
+    held=rifle;aim();held=own;input()
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'weapon replacement restores the prior WW2 firing reference')
+    controls.stop();held=rifle;with_scope=true;controls.start(pawn);aim()
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'an owned optic takes precedence over iron calibration')
+    controls.stop();with_scope=false;with_muzzle=true;controls.start(pawn);aim()
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'unmeasured muzzle attachments retain the stock firing path')
+    controls.stop();with_muzzle=false
+    rifle.IsA,FindAllOf=old_isa,old_find
+    rifle.DefaultMuzzleRelativeTransform,rifle.DefaultSightRelativeTransform=old_muzzle,old_sight
+end
+
+do
+    controls.stop();held=rifle;pawn.InputMode=0;keys={}
+    local old_find,old_sight=FindAllOf,rifle.DefaultSightRelativeTransform
+    local old_isa,old_muzzle=rifle.IsA,rifle.DefaultMuzzleRelativeTransform
+    local iron_class='/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/ZomboyIronSight.ZomboyIronSight_C'
+    -- Initialized SCAR-L kit measurements, not an invented fixed offset.
+    rifle.DefaultSightRelativeTransform=transform({X=5.714109,Y=.000098,Z=16.304255})
+    local iron=object({bIronSight=false,GetOwner=function() return rifle end,
+        GetActorAttachingTo=function() return rifle end,
+        GetSightTransform=function() return transform({X=96.672427,Y=0,Z=174.083714}) end})
+    iron.IsA=function(_,path) return path==iron_class end
+    local owner,attached=rifle,rifle
+    local optic=object({GetOwner=function() return owner end,
+        GetActorAttachingTo=function() return attached end,
+        GetSightTransform=function() return transform({X=104.738098,Y=0,Z=187.857910}) end})
+    local candidates={iron}
+    FindAllOf=function(kind)
+        if kind=='ZomboyGunSightAttachmentActor' then return candidates end
+        return old_find(kind)
+    end
+    local function aim()
+        input();input({RightMouseButton=true});now=now+.21;tick()
+        check(controls.apply_gun_pose(rifle,output),'selected sight applies to the held gun')
+    end
+    local function aligned(point)
+        local p=rotated(output.Rotation,point)
+        return math.abs(output.Translation.X+p.X-18)<.001
+            and math.abs(output.Translation.Y+p.Y)<.001
+            and math.abs(output.Translation.Z+p.Z-170)<.001
+    end
+    controls.start(pawn);aim()
+    check(aligned(rifle.DefaultSightRelativeTransform.Translation),
+        'SCAR irons use the gun sight instead of the low attachment marker, even with bIronSight false')
+    check(camera.FieldOfView==72,'stock iron correction keeps the existing short ADS zoom')
+    candidates={iron,optic};aim()
+    check(aligned({X=4.738098,Y=0,Z=17.857910}),'installed hologram wins when the iron actor is listed first')
+    candidates={optic,iron};aim()
+    check(aligned({X=4.738098,Y=0,Z=17.857910}),'optic alignment does not depend on the iron actor list order')
+    attached=nil;aim()
+    check(aligned(rifle.DefaultSightRelativeTransform.Translation),'detached optic with stale ownership cannot set ADS')
+    attached=foreign;aim()
+    check(aligned(rifle.DefaultSightRelativeTransform.Translation),'optic attached to another gun cannot set ADS')
+    attached=rifle;owner=foreign;aim()
+    check(aligned(rifle.DefaultSightRelativeTransform.Translation),'attachment without matching ownership cannot set ADS')
+    owner=rifle;optic.invalid=true;aim()
+    check(aligned(rifle.DefaultSightRelativeTransform.Translation),'invalid optic is ignored')
+    optic.invalid=false;candidates={};aim()
+    check(aligned(rifle.DefaultSightRelativeTransform.Translation),'gun with no sight actor retains its own reference')
+    candidates={optic};aim()
+    check(aligned({X=4.738098,Y=0,Z=17.857910}),'next aim reads a newly installed optic')
+    input({Tab=true});input();input({Tab=true});candidates={iron};aim()
+    check(aligned(rifle.DefaultSightRelativeTransform.Translation),'menu and attachment change restore iron selection on next aim')
+    controls.stop()
+
+    -- Stock iron actor filtering must still reach Dev's measured WW2 fallback.
+    rifle.IsA=function(self,path) return path:find('/M1Garand/WW2_M1Garand.',1,true)~=nil or old_isa(self,path) end
+    rifle.DefaultMuzzleRelativeTransform=transform({X=81,Y=0,Z=5})
+    rifle.DefaultSightRelativeTransform=transform({X=5.707247,Y=0,Z=7.876582})
+    controls.start(pawn);aim()
+    for _,point in ipairs({{X=7.284,Y=.0043,Z=7.3805},{X=76.9457,Y=.00105,Z=7.8277}}) do
+        local p=rotated(output.Rotation,point)
+        check(math.abs(output.Translation.Y+p.Y)<.001 and math.abs(output.Translation.Z+p.Z-170)<.001,
+            'stock iron attachment still uses the measured WW2 sight line')
+    end
+    controls.stop()
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'iron selector preserves WW2 muzzle restoration on stop')
+
+    -- .46 selected the SCAR gun marker, but it is below the actual rear hole.
+    rifle.IsA=function(self,path) return path=='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SCAL/Scar-L.Scar-L_C' or old_isa(self,path) end
+    rifle.DefaultSightRelativeTransform=transform({X=5.714109,Y=.000098,Z=16.304255})
+    rifle.DefaultMuzzleRelativeTransform=transform({X=62.220192,Y=.000013,Z=9.892205})
+    controls.start(pawn);input();now=now+.21;tick();controls.apply_gun_pose(rifle,output)
+    local hip=transform({X=output.Translation.X,Y=output.Translation.Y,Z=output.Translation.Z})
+    local function straight_shot()
+        local p=rotated(output.Rotation,rotated(rifle.DefaultMuzzleRelativeTransform.Rotation,{X=1,Y=0,Z=0}))
+        return math.abs(p.X-1)<.00001 and math.abs(p.Y)<.00001 and math.abs(p.Z)<.00001
+    end
+    aim()
+    for _,point in ipairs({{X=-1.99545,Y=0,Z=17.9653},{X=37.7935,Y=-.00005,Z=17.9417}}) do
+        local p=rotated(output.Rotation,point)
+        check(math.abs(output.Translation.Y+p.Y)<.001 and math.abs(output.Translation.Z+p.Z-170)<.001,
+            'SCAR rear aperture and front-post tip lie on the camera sight line')
+    end
+    check(straight_shot(),'SCAR calibrated model tilt preserves the native shot direction')
+    check(rifle.DefaultSightRelativeTransform.Translation.Z==16.304255
+        and rifle.DefaultMuzzleRelativeTransform.Translation.Z==9.892205,
+        'SCAR calibration leaves authored sight data and native muzzle origin unchanged')
+    controls.apply_local_grab(rifle,native_pass)
+    check(math.abs(native_pass.Translation.Z-output.Translation.Z)<.00001,'SCAR native grab agrees with the calibrated pose')
+    input();now=now+.1;tick();controls.apply_gun_pose(rifle,output)
+    check(straight_shot(),'SCAR shot direction stays aligned during ADS release')
+    now=now+.11;tick();controls.apply_gun_pose(rifle,output)
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'SCAR hip fire restores native muzzle rotation')
+    check(math.abs(output.Translation.X-hip.Translation.X)<.001
+        and math.abs(output.Translation.Z-hip.Translation.Z)<.001,'SCAR returns to the accepted hip pose')
+    candidates={iron,optic};aim()
+    check(aligned({X=4.738098,Y=0,Z=17.857910}) and rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,
+        'SCAR hologram bypasses iron calibration and restores the native firing reference')
+    candidates={iron};aim();input({Tab=true})
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'SCAR menu restores calibrated muzzle rotation')
+    input();input({Tab=true});aim();controls.stop()
+    check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,'SCAR stop restores calibrated muzzle rotation')
+    FindAllOf,rifle.IsA=old_find,old_isa
+    rifle.DefaultSightRelativeTransform,rifle.DefaultMuzzleRelativeTransform=old_sight,old_muzzle
+end
+
+-- Measured Standard and WW2 models: test the complete ADS pose path against their
+-- rear/front geometry (shipping-size Glock), then verify hip/firing restoration.
+do
+    controls.stop();held=rifle;pawn.InputMode=0;keys={}
+    local old_find,old_isa,old_category=FindAllOf,rifle.IsA,rifle.Category
+    local old_sight,old_muzzle=rifle.DefaultSightRelativeTransform,rifle.DefaultMuzzleRelativeTransform
+    local old_forward,old_right,old_up=camera.GetForwardVector,camera.GetRightVector,camera.GetUpVector
+    FindAllOf=function(kind)
+        if kind=='ZomboyGunSightAttachmentActor' or kind=='ZomboyGunMuzzleAttachmentActor' then return {} end
+        return old_find(kind)
+    end
+    local models={
+    {name='M16A4',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/M16/M16.M16_C',
+        rear={3.06,0.003775,16.53411},front={54.6336,0.0557,16.7133},sight={4.341777801513672,3.814697265625e-06,14.83997917175293},muzzle={72.40686798095703,1.3318694982444867e-05,9.850000381469727},pistol=false},
+    {name='AK74',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/AK74/AK74.AK74_C',
+        rear={20.08935,0,13.7554},front={57.1385,-0.00485,13.49265},sight={4.210887432098389,3.0994415283203125e-05,12.920439720153809},muzzle={60.029632568359375,0.0,7.878426551818848},pistol=false},
+    {name='QBZ95',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/QBZ95/QBZ95.QBZ95_C',
+        rear={-7.79925,0,16.4242},front={25.0155,0,16.2235},sight={-0.8450617790222168,2.7179718017578125e-05,19.033580780029297},muzzle={39.1032829284668,-4.9591064453125e-05,7.537408828735352},pistol=false},
+    {name='FAMAS',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Famas/Famas.Famas_C',
+        rear={-3.5,0,17.00455},front={28.098,0,16.9837},sight={3.976818799972534,0.0,18.852014541625977},muzzle={43.45469284057617,9.5367431640625e-07,9.2056884765625},pistol=false},
+    {name='FNFAL',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/FAL/FNFAL.FNFAL_C',
+        rear={-5.5,-0.00363,12.95942},front={54.5512,-0.00445,12.9648},sight={5.154563903808594,8.58306884765625e-06,14.887335777282715},muzzle={84.67121887207031,2.1424926671897992e-05,7.8412065505981445},pistol=false},
+    {name='M4A1',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/M4A1/M4A1.M4A1_C',
+        rear={2.95,-0.01285,17.251915},front={40.3938,0,17.2797},sight={5.622530937194824,-1.621246337890625e-05,13.053363800048828},muzzle={60.847984313964844,-1.1444091796875e-05,10.470000267028809},pistol=false},
+    {name='AUGA3',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/AUG/AUG.AUG_C',
+        rear={-0.75,0.006365,16.465655},front={24.1038,0.0071,16.137},sight={-1.3290433883666992,6.866455078125e-05,12.74143123626709},muzzle={39.11265182495117,0.4776017963886261,8.147045135498047},pistol=false},
+    {name='MK18',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/MK18/MK18.MK18_C',
+        rear={3.67,2e-05,15.532835},front={38.9673,0.00625,15.27025},sight={5.622530937194824,-1.621246337890625e-05,13.053363800048828},muzzle={48.741180419921875,0.0,8.906922340393066},pistol=false},
+    {name='CZ805',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/CZ805/CZ805.CZ805_C',
+        rear={-1.4,0.000905,17.252965},front={35.4562,-0.0033,17.2186},sight={1.1617345809936523,2.86102294921875e-06,17.723155975341797},muzzle={52.7296257019043,8.102957508526742e-05,8.870408058166504},pistol=false},
+    {name='G36C',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/G36C/G36C.G36C_C',
+        rear={2.58,0.00612,17.732355},front={30.4326,0.0063,17.7882},sight={8.955737113952637,7.62939453125e-06,18.163368225097656},muzzle={45.3528938293457,9.999999747378752e-06,10.2246732711792},pistol=false},
+    {name='SPAS12',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SPAS12/SPAS12.SPAS12_C',
+        rear={25.7,-0.00317,14.251335},front={75.7694,-0.00265,14.2356},sight={11.074462890625,0.0,12.164416313171387},muzzle={84.05799102783203,4.669729605666362e-05,10.333833694458008},pistol=false},
+    {name='P250',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/P250/P250_1.P250_1_C',
+        rear={-1.3028,0,10.8301},front={14.6751,0.00125,10.7141},sight={-1.6670938730239868,9.298324584960938e-06,8.319884300231934},muzzle={16.008275985717773,-0.0001960128138307482,9.150609016418457},pistol=true},
+    {name='P30',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/P30/P30.P30_C',
+        rear={-2.2454,0.0046,10.3128},front={14.5022,0.0046,10.3107},sight={-1.6670938730239868,9.298324584960938e-06,8.319884300231934},muzzle={16.713760375976562,-0.00019505913951434195,8.96336841583252},pistol=true},
+    {name='M1911A1',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/M1911A1/m1911.m1911_C',
+        rear={-0.3515,0,8.6324},front={15.8548,0,8.5167},sight={-1.6670938730239868,9.298324584960938e-06,8.319884300231934},muzzle={16.975828170776367,-0.0001960128138307482,7.121578693389893},pistol=true},
+    {name='Glock22',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Glock22/Glock22_1.Glock22_1_C',
+        rear={-1.904481,0.013184,9.549184},front={15.184585,0.013183,9.551141},sight={-1.6670939922332764,9.000000318337698e-06,8.319884300231934},muzzle={14.668245315551758,-0.000195999993593432,6.6091766357421875},pistol=true},
+    {name='Deagle',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Deagle/Deagle.Deagle_C',
+        rear={-0.96525,1.24595,10.6745},front={20.4417,1.246,10.6809},sight={-1.6670938730239868,9.298324584960938e-06,8.319884300231934},muzzle={20.988609313964844,1.185591220855713,8.587663650512695},pistol=true},
+    {name='MP5A3',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/MP5A2/MP5A2.MP5A2_C',
+        rear={-0.0257,0.0168,16.0262},front={36.3752,0.0077,15.6255},sight={5.895656585693359,1.71661376953125e-05,14.890814781188965},muzzle={42.027076721191406,9.5367431640625e-07,8.292481422424316},pistol=false},
+    {name='MP7A1',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/MP7/MP7.MP7_C',
+        rear={-9.85,0,15.0737},front={17.1139,-0.014,14.8013},sight={-5.404641151428223,9.512901306152344e-05,13.895030975341797},muzzle={30.378820419311523,3.143850699416362e-05,7.436092376708984},pistol=false},
+    {name='UZIPRO',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/UZI/UZI.UZI_C',
+        rear={-10.4528,0.02395,15.0163},front={12.1383,0.0344,14.9231},sight={-8.055628776550293,0.0,11.590104103088379},muzzle={18.227182388305664,1.7133392248069867e-05,9.746260643005371},pistol=false},
+    {name='KrissVector',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/KrissVector/KrissVector.KrissVector_C',
+        rear={2.9,0,14.76848},front={34.1254,0,14.7826},sight={6.5135817527771,-8.392333984375e-05,11.09066104888916},muzzle={47.19562530517578,-7.251198985613883e-05,3.79315185546875},pistol=false},
+    {name='ASVAL',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Val/As_Val.As_Val_C',
+        rear={26.2828,0,11.0706},front={57.8858,0,10.543},sight={6.077319145202637,1.5735626220703125e-05,12.71773910522461},muzzle={60.43617630004883,-4.76837158203125e-07,7.34613037109375},pistol=false},
+    {name='P90',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/P90/P90.P90_C',
+        rear={12.72,0,21.9905},front={22.3193,-0.0134,21.7301},sight={8.115805625915527,-7.43865966796875e-05,19.745725631713867},muzzle={29.94873046875,0.0,11.530862808227539},pistol=false},
+    {name='AACHB',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/AAC/AACHB.AACHB_C',
+        rear={1.35,0,16.9772},front={29.305,0,17.00255},sight={4.531364917755127,2.86102294921875e-06,15.428862571716309},muzzle={47.341217041015625,-1.33514404296875e-05,9.872318267822266},pistol=false},
+    {name='Sako85',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Sako85/Sako85.Sako85_C',
+        rear={41.55125,0,7.1719},front={79.9319,0.0062,7.1588},sight={13.379770278930664,8.58306884765625e-06,8.697275161743164},muzzle={83.38925170898438,0.0,4.7231268882751465},pistol=false},
+    {name='SKS',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SKS_Old/SKS_Old.SKS_Old_C',
+        rear={26.34265,0.0004,9.4565},front={72.9715,0,9.2397},sight={13.004916191101074,7.62939453125e-06,12.315016746520996},muzzle={74.76091766357422,8.579794666729867e-05,4.422569751739502},pistol=false},
+    {name='SVD',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/SVD/SVD.SVD_C',
+        rear={29.2697,-0.0003,12.7317},front={73.5042,-0.0004,12.5989},sight={8.24615478515625,-7.62939453125e-06,12.000027656555176},muzzle={78.97283935546875,6.767813465557992e-05,8.775104522705078},pistol=false},
+    -- WW2 stock-loadout points measured from installed meshes.
+    {name='Bren',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/Bren/WW2_Bren.WW2_Bren_C',
+        rear={-3.9,-2.0391,14.66239},front={69.1996,-2.0605,13.481},sight={-2.07063746,1.90734863e-06,12.26264},muzzle={82.3262939,0.133635491,10.4163189},category='Rifle'},
+    {name='M1A1',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M1A1/WW2_M1A1.WW2_M1A1_C',
+        rear={-14.2,-5e-06,9.94836},front={38.5384,-4.5e-05,9.940015},sight={-2.07063746,1.90734863e-06,12.26264},muzzle={41.7734985,-6.48825953e-05,6.62934399},category='SMG'},
+    {name='M3A1',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M3A1/WW2_M3A1.WW2_M3A1_C',
+        rear={-1.98,0.00019,10.74798},front={24.959515,0.0002,10.74137},sight={-2.07063746,1.90734863e-06,12.26264},muzzle={46.3487015,-6.10678981e-05,7.347826},category='SMG'},
+    {name='M712',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M712/WW2_M712.WW2_M712_C',
+        rear={1.20529,-8.5e-05,9.00452},front={23.79564,-8e-05,9.00144},sight={-1.66709387,9.29832458e-06,8.3198843},muzzle={25.3707733,-0.00020841058,7.51441908},category='Pistol'},
+    {name='MauserC96',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/MauserC96/WW2_MauserC96.WW2_MauserC96_C',
+        rear={1.19867,0,9.38505},front={26.66238,0,9.38114},sight={-1.66709387,9.29832458e-06,8.3198843},muzzle={28.85256,-0.000192198117,7.56090021},category='Pistol'},
+    {name='MP40',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/MP40/WW2_MP40.WW2_MP40_C',
+        rear={17.71281,0,15.4162},front={62.16338,-1e-05,14.75972},sight={1.7560904,1.90734863e-06,14},muzzle={60,0,10.9247856},category='SMG'},
+    {name='P38',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/P38/WW2_P38.WW2_P38_C',
+        rear={-1.36029,0.02657,6.045635},front={16.83919,0.00926,6.00178},sight={-1.66709387,9.29832458e-06,8.3198843},muzzle={18.652647,-0.000193151791,4.59321737},category='Pistol'},
+    {name='PPSh41',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/PPSh41/WW2_PPSh41.WW2_PPSh41_C',
+        rear={12.3778,0.010155,7.99715},front={49.64243,0.00981,7.94759},sight={-2.07063746,1.90734863e-06,12.26264},muzzle={49.9758453,-3.84744271e-06,6.05464077},category='SMG'},
+    {name='SjogrenInertia',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/SjogrenInertia/WW2_SjogrenInertia.WW2_SjogrenInertia_C',
+        rear={12.23083,-0.091015,5.36266},front={88.58083,-0.091025,5.39998},sight={5.70724726,0,12.1644163},muzzle={91.5958252,5.05119933e-05,3.17769527},category='Shotgun'},
+    {name='STG44',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/STG44/WW2_STG44.WW2_STG44_C',
+        rear={16.18643,0,14.39774},front={61.55316,-5e-06,14.95355},sight={0,4.00734862e-05,14.9091892},muzzle={64.0504379,9.53674316e-07,8.89236164},category='Rifle'},
+    {name='SVT40',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/SVT40/WW2_SVT40.WW2_SVT40_C',
+        rear={24.60917,0.0634,7.48274},front={73.22399,0.05636,7.12401},sight={2.45054913,3.81469727e-06,7.80292606},muzzle={80.2847214,9.34273412e-05,3.91772819},category='Rifle'},
+    {name='TT33',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/TT33/WW2_TT33.WW2_TT33_C',
+        rear={-1.18517,0,8.21765},front={14.78204,5e-06,7.96634},sight={-1.66709387,9.29832458e-06,8.3198843},muzzle={16.8243294,-0.000193151791,6.68682146},category='Pistol'},
+    {name='M1897',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M1897/M1897.M1897_C',
+        rear={7.21332,-4e-05,6.6899},front={72.4559,-1.5e-05,6.67995},sight={11.0794458,-3.89999987e-05,7.99214602},muzzle={76.6374664,-3.70000016e-05,4.8265419},category='Shotgun'},
+    {name='M1941',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M1941/M1941.M1941_C',
+        rear={6.1,-9e-05,6.63909},front={84.32443,-0.000575,6.68119},sight={4.50004292,-3.81469727e-06,9.20201302},muzzle={87.1019821,3.90679015e-05,3.53738928},category='Rifle'},
+    {name='M1Garand',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M1Garand/WW2_M1Garand.WW2_M1Garand_C',
+        rear={7.284,0.0043,7.3805},front={76.9457,0.00105,7.8277},sight={5.70724726,0,7.87658215},muzzle={81.3018112,4.76509704e-05,5.27730751},category='Rifle'},
+    {name='Kar98',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/Kar98/WW2_Kar98.WW2_Kar98_C',
+        rear={24.1948,0,7.6439},front={74.2814,0,7.6527},sight={0.818310261,8.58306885e-06,6.43197346},muzzle={77.4449005,-7.62939453e-06,5.47960234},category='Sniper'},
+    {name='LeeEnfield',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/LeeEnfield/WW2_LeeEnfield.WW2_LeeEnfield_C',
+        rear={5.9349,0.0115,7.7394},front={78.751,0.0002,7.6842},sight={-4.95949221,-9.53674316e-06,9.72078228},muzzle={77.4449005,-7.62939453e-06,5.47960234},category='Sniper'},
+    {name='Mosin',path='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/Mosin/WW2_Mosin.WW2_Mosin_C',
+        rear={21.4549,0.00115,9.06073},front={84.3506,0.00365,9.6467},sight={0.818310261,8.58306885e-06,6.43197346},muzzle={87.6908264,-7.62939453e-06,7.25840759},category='Sniper'},
+    }
+    local function vector(p) return {X=p[1],Y=p[2],Z=p[3]} end
+    for _,model in ipairs(models) do
+        rifle.IsA=function(self,path) return path==model.path or old_isa(self,path) end
+        rifle.Category={ToString=function() return model.category or model.pistol and 'Pistol' or model.name=='SPAS12' and 'Shotgun' or model.name=='MP5A3' and 'SMG' or 'Carbine' end}
+        rifle.DefaultSightRelativeTransform=transform(vector(model.sight))
+        rifle.DefaultMuzzleRelativeTransform=transform(vector(model.muzzle))
+        controls.start(pawn);input();now=now+.21;tick();controls.apply_gun_pose(rifle,output)
+        local hip={X=output.Translation.X,Y=output.Translation.Y,Z=output.Translation.Z}
+        input({RightMouseButton=true});now=now+.21;tick()
+        for _,view in ipairs({{Pitch=0,Yaw=0,Roll=0},{Pitch=55,Yaw=75,Roll=0},{Pitch=-55,Yaw=-120,Roll=0}}) do
+            local q=hand_transform({position={X=0,Y=0,Z=170},rotation=view}).Rotation
+            camera.GetForwardVector=function() return rotated(q,{X=1,Y=0,Z=0}) end
+            camera.GetRightVector=function() return rotated(q,{X=0,Y=1,Z=0}) end
+            camera.GetUpVector=function() return rotated(q,{X=0,Y=0,Z=1}) end
+            controls.tick(pawn,pc,camera,view);controls.apply_gun_pose(rifle,output)
+            local forward,rightward,upward=camera:GetForwardVector(),camera:GetRightVector(),camera:GetUpVector()
+            for _,point in ipairs({model.rear,model.front}) do
+                local p=rotated(output.Rotation,vector(point))
+                local delta={X=output.Translation.X+p.X,Y=output.Translation.Y+p.Y,Z=output.Translation.Z+p.Z-170}
+                check(math.abs(delta.X*rightward.X+delta.Y*rightward.Y+delta.Z*rightward.Z)<.001
+                    and math.abs(delta.X*upward.X+delta.Y*upward.Y+delta.Z*upward.Z)<.001,
+                    model.name..' rear/front sights align at mouse pitch '..view.Pitch)
+            end
+            local shot=rotated(output.Rotation,rotated(rifle.DefaultMuzzleRelativeTransform.Rotation,{X=1,Y=0,Z=0}))
+            check(math.abs(shot.X-forward.X)<.00001 and math.abs(shot.Y-forward.Y)<.00001
+                and math.abs(shot.Z-forward.Z)<.00001,model.name..' native shot direction follows the sight line')
+            controls.apply_local_grab(rifle,native_pass)
+            check(math.abs(native_pass.Translation.X-output.Translation.X)<.00001
+                and math.abs(native_pass.Translation.Y-output.Translation.Y)<.00001
+                and math.abs(native_pass.Translation.Z-output.Translation.Z)<.00001,
+                model.name..' native grab keeps the calibrated pose')
+        end
+        camera.GetForwardVector,camera.GetRightVector,camera.GetUpVector=old_forward,old_right,old_up
+        input();now=now+.21;tick();controls.apply_gun_pose(rifle,output)
+        check(math.abs(output.Translation.X-hip.X)<.001 and math.abs(output.Translation.Y-hip.Y)<.001
+            and math.abs(output.Translation.Z-hip.Z)<.001,model.name..' keeps the accepted hip pose')
+        check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,model.name..' restores hip firing rotation')
+        input({RightMouseButton=true});now=now+.21;tick();controls.stop()
+        check(rifle.DefaultMuzzleRelativeTransform.Rotation.W==1,model.name..' restores firing rotation on stop')
+    end
+    FindAllOf,rifle.IsA,rifle.Category=old_find,old_isa,old_category
+    rifle.DefaultSightRelativeTransform,rifle.DefaultMuzzleRelativeTransform=old_sight,old_muzzle
+end
+
+do
+    local actions=require('ItemActions')
+    local follow=actions.follow
+    actions.follow=function() end -- Parent movement has its own native and Lua checks.
+    held=nil;pawn.InputMode=0;keys={};controls.start(pawn);input();input({LeftMouseButton=true})
+    check(trigger==0,'empty-hand click cannot trigger a nearby vest pouch');input();controls.stop()
+    local unknown=gun(pawn,70);unknown.nongun=true;unknown.K2_SetActorLocationAndRotation=function() end;held=unknown
+    controls.start(pawn);input();input({LeftMouseButton=true})
+    check(trigger==0,'unhandled utility click cannot trigger a nearby vest pouch');input();controls.stop()
+    local bow=gun(pawn,70);bow.nongun=true
+    bow.IsA=function(_,name) return tostring(name):find('/Ninja/Bow.Bow_C',1,true)~=nil end
+    bow.K2_SetActorLocationAndRotation=function(self,p) self.position=p end
+    held=bow;pawn.InputMode=0;keys={};controls.start(pawn);input()
+    local baseline=camera.FieldOfView
+    check(pawn.Mesh.bVisible,'bow hands remain visible at hip')
+    check(math.abs(bow.position.Y-12)<.001 and math.abs(bow.position.Z+4.510242-160)<.001,'bow rests below and beside the eye')
+    input({RightMouseButton=true});now=now+.1;tick()
+    check(math.abs(camera.FieldOfView-baseline*.95)<.001,'bow aim eases in over 0.2 seconds')
+    check(not pawn.Mesh.bVisible,'bow hands clear the view during aim-in')
+    now=now+.11;tick()
+    check(math.abs(camera.FieldOfView-baseline*.9)<.001,'bow aim uses the saved FOV with 10 percent zoom')
+    check(math.abs(bow.position.Y-3)<.001 and math.abs(bow.position.Z+4.510242-170)<.001,'aim raises the native arrow line to eye height')
+    input();now=now+.1;tick()
+    check(not pawn.Mesh.bVisible,'hands remain hidden until bow aim-out finishes')
+    now=now+.11;tick();check(pawn.Mesh.bVisible,'hands return when bow aim ends')
+    input({RightMouseButton=true});now=now+.21;tick()
+    input({Tab=true,RightMouseButton=true});now=now+.21;tick()
+    check(math.abs(camera.FieldOfView-baseline)<.001,'menu clears bow aim and zoom')
+    check(pawn.Mesh.bVisible,'menu restores the bow hands')
+    input();input({Tab=true});input();input({RightMouseButton=true});now=now+.21;tick()
+    held=rifle;input()
+    check(pawn.Mesh.bVisible,'swapping from aimed bow restores gun hands')
+    check(math.abs(camera.FieldOfView-baseline)<.001,'switching to a gun restores its normal zoom path')
+    held=bow;input({RightMouseButton=true});now=now+.21;tick()
+
+    controls.stop()
+    check(pawn.Mesh.bVisible,'stopping restores the mesh after bow aim')
+    local knife=gun(pawn,70);knife.nongun=true
+    knife.IsA=function(_,name) return tostring(name):find('/CS_MeleeWeapon.CS_MeleeWeapon_C',1,true)~=nil end
+    knife.K2_SetActorLocationAndRotation=function(self,p,r) self.position,self.rotation=p,r end
+    held=knife;keys={};controls.start(pawn);input()
+    check(math.abs(knife.rotation.Pitch+30)<.001 and math.abs(knife.rotation.Roll+30)<.001,
+        'melee grip leans 30 degrees forward and 30 degrees toward screen center')
+    check(math.abs(knife.position.X-45)<.001 and math.abs(knife.position.Y-32)<.001 and math.abs(knife.position.Z-136)<.001,
+        'idle melee grip rests lower and to the right while keeping its forward reach')
+    input({LeftMouseButton=true});now=now+.051;tick()
+    local right_edge=knife.position.Y
+    now=now+.049;tick()
+    check(math.abs(knife.rotation.Pitch+90)<.001,'wrist turns forward as the cut crosses the target')
+    now=now+.049;tick()
+    check(math.abs(right_edge-knife.position.Y-98)<.001,'real melee pose covers the wider horizontal stroke')
+    check(not knife.bIsPhysicalInteractible,'held melee uses the native direct transform path')
+    now=now+.16;input({LeftShift=true});input({LeftShift=true,LeftMouseButton=true})
+    now=now+.10;tick()
+    check(not pawn.sprinting and math.abs(knife.position.Y-4)<.001 and math.abs(knife.position.Z-154)<.001,
+        'stationary Shift allows a fresh melee click on the accepted cut path')
+    now=now+.21;input()
+    pawn.CharacterMovement.Velocity={X=200,Y=0,Z=0}
+    input({W=true,LeftShift=true});input({W=true,LeftShift=true,LeftMouseButton=true})
+    now=now+.10;tick()
+    check(pawn.sprinting and trigger==0 and math.abs(knife.position.Y-4)<.001 and math.abs(knife.position.Z-154)<.001,
+        'moving sprint permits the same melee cut without a gun trigger')
+    now=now+.21;tick()
+    check(controls.status():find('item_action=swing-finished',1,true) and math.abs(knife.position.Y-32)<.001
+        and math.abs(knife.position.Z-136)<.001,'sprinting melee completes and returns to the lower-right rest')
+    input({W=true,LeftShift=true});input({W=true,LeftShift=true,LeftMouseButton=true});now=now+.07;tick()
+    input({Tab=true,W=true,LeftShift=true});tick()
+    check(pawn.InputMode==1 and not pawn.sprinting and math.abs(knife.position.Y-32)<.001,
+        'opening a menu still cancels a sprinting melee cut')
+    check(knife.bIsPhysicalInteractible,'menu restores the original melee physics flag')
+    input({W=true,LeftShift=true,LeftMouseButton=true});now=now+.10;tick()
+    check(math.abs(knife.position.Y-32)<.001 and math.abs(knife.position.Z-136)<.001,
+        'Shift plus click cannot start melee through a visible menu')
+    input();input({Tab=true});input();pawn.CharacterMovement.Velocity={X=0,Y=0,Z=0}
+    check(not knife.bIsPhysicalInteractible,'closing a menu resumes direct melee holding')
+    held=bow;input();check(knife.bIsPhysicalInteractible and bow.bIsPhysicalInteractible,'swap restores melee and leaves bow physics alone')
+    held=knife;input();held=nil;input();check(knife.bIsPhysicalInteractible,'drop restores the melee physics flag')
+    held=knife;input();controls.stop();check(knife.bIsPhysicalInteractible,'stop restores the original melee physics flag')
+    knife.bIsPhysicalInteractible=false;held=knife;controls.start(pawn);input();controls.stop()
+    check(not knife.bIsPhysicalInteractible,'an originally direct melee item stays direct on stop')
+    knife.bIsPhysicalInteractible=true;actions.follow=follow
+end
 print(count..' keyboard interaction checks passed; slide physics and sight alignment require live verification')
 os.clock=real_clock

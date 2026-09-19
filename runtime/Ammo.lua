@@ -4,6 +4,9 @@ local function valid(o) return o and o:IsValid() end
 local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetAddress() end
 local pouch_class='/Script/ZomboyVR.ZomboyBulletPouchActor'
 local loader_class='/Game/Core/VRInteractables/ZomboyGunSystem/Guns/Modern/Magnum/Magnum_Loader.Magnum_Loader_C'
+local function enbloc_gun(gun)
+    return gun:IsA('/Game/Core/VRInteractables/ZomboyGunSystem/Guns/WW2/WW2Blueprints/M1Garand/WW2_M1Garand.WW2_M1Garand_C')
+end
 local function source_type(item)
     if item:IsA(pouch_class) then return 'shell' end
     if item:IsA(loader_class) then return 'loader' end
@@ -20,7 +23,12 @@ local function rounds(clip)
 end
 local function chest(pawn)
     local result={}
-    for _,holster in ipairs(FindAllOf('ZomboyInteractableHolster') or {}) do
+    local vest=pawn.PlayerVest
+    local manager=valid(vest) and vest.HolsterManager
+    if not valid(manager) then return result end
+    local holsters={}
+    manager.Holsters:ForEach(function(_,entry) holsters[#holsters+1]=entry:get() end)
+    for _,holster in ipairs(holsters) do
         if valid(holster) and same(holster:GetOwner(),pawn)
             and holster:IsA('/Game/Core/Loadouts/BaseClasses/AmmoHolsterBase.AmmoHolsterBase_C') then
             local clip=holster:GetHolsterInteractable()
@@ -34,8 +42,15 @@ local function chest(pawn)
 end
 function M.plan(pawn,gun)
     local clip=gun:GetCurrentClip()
-    if not valid(clip) then return nil,'no-gun-magazine' end
-    local current,capacity=rounds(clip)
+    local enbloc=not valid(clip) and enbloc_gun(gun)
+    if not valid(clip) and not enbloc then return nil,'no-gun-magazine' end
+    local current,capacity
+    if enbloc then
+        local kind=gun:GetDefaultClipClass()
+        if not valid(kind) then return nil,'no-gun-magazine' end
+        local template=kind:GetCDO()
+        current,capacity=0,template:GetClipCapacity()
+    else current,capacity=rounds(clip) end
     if current==capacity and gun:HasBulletInChamber() then return nil,'gun-full' end
     local kind=gun:GetDefaultClipClass()
     local selected,most=nil,0
@@ -47,6 +62,7 @@ function M.plan(pawn,gun)
     end
     if not selected then return nil,'no-chest-magazine' end
     selected.pawn,selected.gun,selected.gun_clip=pawn,gun,clip
+    selected.enbloc=enbloc
     selected.kind=source_type(selected.clip)
     if selected.kind=='loader' and current+(gun:HasBulletInChamber() and 1 or 0)>=capacity then return nil,'gun-full' end
     selected.delay=selected.kind=='shell' and .5 or selected.kind=='loader'
@@ -78,20 +94,47 @@ function M.counts(pawn,gun)
 end
 local function drain(clip,target)
     local count=rounds(clip)
-    for _=1,count-target do
+    -- Native float ammo fractions can skip an integer (PPSh: 64 -> 62).
+    -- Read actual progress; never call again after the target is reached.
+    while count>target do
         assert(clip:MoveBulletToChamber(),'magazine did not release a round')
+        local remaining=rounds(clip)
+        assert(remaining<count,'magazine count did not update')
+        count=remaining
     end
-    assert(rounds(clip)==target,'magazine count did not update')
 end
 function M.complete(plan)
     local source,gun,clip=plan.clip,plan.gun,plan.gun_clip
-    if not valid(gun) or not same(gun:GetCurrentClip(),clip) or not valid(source)
+    if not valid(gun) or (plan.enbloc and (not enbloc_gun(gun) or not same(gun:GetOwner(),plan.pawn)
+        or valid(gun:GetCurrentClip())) or not plan.enbloc and not same(gun:GetCurrentClip(),clip)) or not valid(source)
         or not valid(plan.holster) or not same(plan.holster:GetOwner(),plan.pawn)
         or not same(source:GetOwner(),plan.pawn) or not same(source:GetActorAttachingTo(),plan.holster)
         or not same(plan.holster:GetHolsterInteractable(),source)
         or not same(source:GetClass(),gun:GetDefaultClipClass()) then return false,'magazine-changed' end
     local available=rounds(source)
     if available==0 then return false,'no-chest-magazine' end
+    if plan.enbloc then
+        if not valid(gun.GunClipTransform) then return false,'no-clip-mount' end
+        -- The stock Garand ejects its empty clip. Keep the chest actor for
+        -- station refills; insert a replacement carrying only its real rounds.
+        local replacement=gun:GetWorld():SpawnActor(source:GetClass(),gun:K2_GetActorLocation(),gun:K2_GetActorRotation())
+        if not valid(replacement) then return false,'clip-spawn-failed' end
+        replacement:SetOwner(plan.pawn)
+        drain(replacement,available)
+        local chamber=gun:HasBulletInChamber()
+        replacement:AuthoritySetAttachment(gun.GunClipTransform,FName('None'),
+            {Rotation={X=0,Y=0,Z=0,W=1},Translation={X=0,Y=0,Z=0},Scale3D={X=1,Y=1,Z=1}})
+        if not same(gun:GetCurrentClip(),replacement) or not same(replacement:GetActorAttachingTo(),gun) then
+            if same(gun:GetCurrentClip(),replacement) then
+                if not chamber and gun:HasBulletInChamber() then gun:EjectChamberBullet() end
+                gun:EjectClip()
+            end
+            replacement:K2_DestroyActor()
+            return false,'clip-insert-failed'
+        end
+        drain(source,0)
+        return true,'inserted-enbloc-clip'
+    end
     if plan.kind=='shell' then
         local current,capacity=rounds(clip)
         if current==capacity and gun:HasBulletInChamber() then return false,'gun-full' end

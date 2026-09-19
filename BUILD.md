@@ -20,7 +20,7 @@ setup window, settings window, and shortcuts.
 
 The EXE runs the packaged WinForms settings script inside a Windows PowerShell
 runspace. No terminal or separate PowerShell process opens during normal use.
-The game still needs UE4SS and the CVRFlatscreen loadout.
+The game still needs UE4SS and one of the three supported CVRFlatscreen loadouts.
 
 Run installer and native form checks:
 

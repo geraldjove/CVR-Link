@@ -1,48 +1,33 @@
-# Release checks - CVR Link 0.2.42 / loadout 0.2.5
+# CVR Link 0.2.62 validation
 
-18 September 2026. Code/package checks and play results are separate.
+Release checks for 19 September 2026. Code and native editor results are
+separate from live play evidence.
 
-- All ten Lua 5.4 suites pass: camera 61, controls 362, inventory 59, ammo 44,
-  items 19, placement 22, settings 56, room 36, menu 85 and HUD 22 (766 total).
-- Flat menu 55, display 33, scope/FOV/lifecycle 30, HUD creation/spread 18
-  and menu discovery 14 pass. All 15 exported Lua suites pass.
-- New cases cover inherited click-only capture on activation, travel and
-  pawn replacement; stationary menus, spawn, missing/replaced menu trees,
-  F9, Tab/Escape and forced UI. The old code fails the new regressions.
-- Native form and EXE checks pass. Saved GUI settings 57 and display 34
-  checks pass. Display app backup, launch and layout checks pass (14).
-- 49 installer checks include upgrades from 0.2.41. Eight scope-package
-  ownership/repair/removal checks pass. Scope assets are unchanged.
-- The exact 24-entry public EXE payload matches reviewed source and pinned
-  vendor hashes. Private-data scans and PowerShell syntax pass. The pinned
-  upstream UE4SS DLL is allowed to contain its own build paths only after
-  its exact hash matches; it is still scanned for secret patterns.
-- The clean 48-file public source export builds and passes the same payload
-  checks. It excludes private access/freecam and archived DLSS controls.
+The public runtime is generated from the existing gated source plus the
+reviewed Standard/WW2/Ninja gameplay changes. It permits only the three
+exact CVRFlatscreen plan paths and the existing Experimental HQ exception.
+Player choice, helper expiry, respawn/travel cleanup and VR default remain.
 
-Public EXE SHA-256:
-`0E48D30F17B3E182C91DA3250930ECEC4E5CF554DFB838AF22E0C6CAF81BB586`.
-Scope PAK SHA-256, unchanged from 0.2.41:
-`E56D5E4F5514783F847F1ACBFB126A6DE01E2B7BEF116D7E6E781FD80FBC2E70`.
+The release checks cover all fifteen Lua suites, each loadout's exact gate
+and pause page, mode choice, helper expiry, replacement holders and local
+HUD loading without another loadout package. Desktop settings, exported INIs,
+installer, native EXE, PowerShell syntax, pinned loader hashes, exact payload
+paths and private-data scans are checked separately.
 
-The maintainer confirmed that the flat join/loadout screen is clickable and
-mouse look works after spawning without holding a button or toggling Tab
-in Dev 0.2.42. Public uses the same fix with its existing access checks.
-That preview result is not a new public shipping-game play test. Repeated
-death/respawn, more maps and custom menu layouts remain open. Some custom
-menus crowd their panels into one row.
+Generated loadouts are reopened in the Unreal editor. Checks exercise their
+compiled Windows/Quest menus, hidden pointer collision, parent ticks, HUD,
+stock gear, source holder classes and saved thumbnail references. Windows,
+server and Android cooks are separate. Each ZIP must contain exactly one
+PAK with forward-slash entry paths and a matching decompressed SHA-256.
 
-The 0.2.40 Dev scope/blur and ADS play results, and 0.2.41 asset checks,
-retain their original limits. This update changes no assets. Other optics,
-FPS gains, ballistic marks, VR peers and Quest menu use still need checks.
+Gerald accepted the source preview's iron-sight feel, bow aim, Ninja
+equipment/smoke, melee reach/rotation, resting position and Shift attacks.
+That does not establish every public app/package case. Further checks
+should test each loadout in the shipping game, including joins,
+respawns, saves, crouch and leaving unsupported rooms. Remote clients,
+Quest, dedicated servers and mixed play keep their own test limits.
 
-Public matches retain the exact CVRFlatscreen plan, local mode choice and
-live-app checks. Experimental permits only the standalone stock HQ exception.
-The loadout stays 0.2.5: Windows 8222067, server 8222068 and Android 8222069.
-The EXE remains unsigned. Prior release 0.2.41 is retained for rollback.
-
-Published source tag: `06502f3`. Anonymous EXE/scope/checksum downloads match
-the checked artifacts. The downloaded EXE's runtime also passes 61 camera,
-36 room, 85 menu, 14 discovery and 55 flat-menu checks. Mod.io notes link
-0.2.42; unchanged loadout ZIP/PAK hashes, exact entry names, Windows default,
-metadata/tags and Android discovery pass.
+Final WW2/Ninja packages use their own mod.io IDs and namespace. Standard
+keeps page 6383627 and its original asset paths under its new display name.
+The public app permits only those three exact plans, plus the existing
+Experimental local HQ exception. Renaming a room cannot enable it.

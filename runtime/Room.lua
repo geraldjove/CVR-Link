@@ -1,13 +1,17 @@
 -- Only the actual loadout plan grants access. Names typed by a host do not.
 local M={}
 M.plan='ZomboyLoadoutPlanInfo /CVRFlatscreen/CVRFlatscreenPlan.CVRFlatscreenPlan'
+M.plans={
+    ['ZomboyLoadoutPlanInfo /CVRFlatscreenWW2/CVRFlatscreenPlan.CVRFlatscreenPlan']='/CVRFlatscreenWW2',
+    ['ZomboyLoadoutPlanInfo /CVRFlatscreenNinja/CVRFlatscreenPlan.CVRFlatscreenPlan']='/CVRFlatscreenNinja',
+}
 M.hub_mode='BlueprintGeneratedClass /Game/Blueprints/GameModes/HubLevel/HubGameMode.HubGameMode_C'
 local function valid(o) return o and o:IsValid() end
 local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetAddress() end
 function M.new() return {choice=0} end
 function M.reset(state)
     state.world,state.choice,state.widget,state.holder=nil,0,nil,nil
-    state.world_name,state.menu_scan_at=nil,nil
+    state.world_name,state.menu_scan_at,state.root=nil,nil,nil
     state.home,state.automatic=false,false
 end
 function M.check(state,game,pawn,experimental,standalone)
@@ -18,7 +22,9 @@ function M.check(state,game,pawn,experimental,standalone)
     if state.departing and state.departing==game:GetFullName() then M.reset(state); return false end
     state.departing=nil
     local plan=game:IsA('/Script/ZomboyVR.ZomboyGameState') and game:GetLoadoutPlan()
-    local room=valid(plan) and plan:GetFullName()==M.plan
+    local name=valid(plan) and plan:GetFullName()
+    local root=name and (name==M.plan and '/CVRFlatscreen' or M.plans[name])
+    local room=root~=nil and root~=false
     local hub=standalone==true and valid(game.GameModeClass) and game.GameModeClass:GetFullName()==M.hub_mode or false
     local home=not room and experimental==true and hub
     if not room and not home then
@@ -27,8 +33,8 @@ function M.check(state,game,pawn,experimental,standalone)
         -- loadout. Wait for a known plan before sending a headset-free player home.
         return false,not hub and valid(game.GameModeClass) and (valid(plan) or not game:IsA('/Script/ZomboyVR.ZomboyGameState')) or false
     end
-    if state.world~=address or state.home~=home then
-        M.reset(state); state.world=address; state.world_name=game:GetFullName(); state.home=home
+    if state.world~=address or state.home~=home or state.root~=root then
+        M.reset(state); state.world=address; state.world_name=game:GetFullName(); state.home=home;state.root=root
     end
     -- The widget belongs to this player's loadout, never another player's choice.
     if state.holder and (not valid(state.holder) or not same(state.holder:GetOwner(),pawn)) then

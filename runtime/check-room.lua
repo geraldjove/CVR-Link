@@ -87,4 +87,18 @@ check(not allowed and not unsupported,'an unknown game mode waits for replicatio
 game.GameModeClass=object({GetFullName=function() return R.hub_mode end})
 allowed,unsupported=R.check(state,game,pawn,false,true)
 check(not allowed and not unsupported,'turning Experimental off at HQ cannot start an HQ return loop')
+-- Appended to the public room suite; exercise every new exact identity.
+for name,root in pairs(R.plans) do
+    R.reset(state);plan.GetFullName=function() return name end
+    check(R.check(state,game,pawn) and state.root==root,'exact '..root..' plan permits choice')
+    check(not R.choose(state,0,true),'new loadout remains VR by default')
+    check(not R.choose(state,1,false),'new loadout still requires a live helper')
+    check(R.choose(state,1,true),'local choice and helper enable the supported loadout')
+    plan.GetFullName=function() return name..'_Fake' end
+    check(not R.check(state,game,pawn) and not R.choose(state,1,true),'similar loadout names cannot bypass the gate')
+    plan.GetFullName=function() return name end;R.check(state,game,pawn);R.choose(state,1,true)
+    plan.GetFullName=function() return R.plan end
+    check(R.check(state,game,pawn) and state.choice==0,'changing accepted identities resets local choice')
+end
+
 print(count..' room checks pass')

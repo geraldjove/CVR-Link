@@ -145,7 +145,7 @@ local function tick(context)
             -- changes maps without clearing the game's online lobby membership.
             if returned_world~=world and os.time()-denied_since>=3 then
                 returned_world=world
-                report('RETURNING|headset_free=true|reason=This match needs the CVRFlatscreen loadout')
+                report('RETURNING|headset_free=true|reason=This match needs CVRFlatscreen Standard, CVRFlatscreen WW2 or CVRFlatscreen Ninja')
                 print('[Flatscreen] unsupported loadout; returning headset-free player to HQ\n')
                 pc:ClientLeaveGame()
                 return -- Travel may invalidate every object captured above.
@@ -275,4 +275,4 @@ RegisterBeginPlayPostHook(function(context)
     if not ok then failed=true; hooked=true; report('ERROR|' .. tostring(reason)); print('[Flatscreen] ' .. tostring(reason) .. '\n') end
 end)
 report('LOADED|waiting for local character')
-print('[Flatscreen] loaded; exact CVRFlatscreen loadout required in matches; Experimental permits local HQ\n')
+print('[Flatscreen] loaded; an exact supported CVRFlatscreen loadout required in matches; Experimental permits local HQ\n')

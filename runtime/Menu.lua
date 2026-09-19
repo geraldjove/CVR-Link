@@ -63,8 +63,16 @@ function M.update(pawn,pc,game,ready,standalone,headset_free)
         if state.menu_scan_at and now>=state.menu_scan_at and now-state.menu_scan_at<1 then return enabled end
         state.menu_scan_at=now
         state.discovery='no holder'
+        local root=state.root or '/CVRFlatscreen'
+        local vest=pawn.PlayerVest
+        local classes={}
+        local cls=valid(vest) and vest:GetClass()
+        while valid(cls) do
+            classes[cls:GetFullName()]=true
+            cls=cls:GetSuperStruct()
+        end
         for index=0,2 do
-            for _,holder in ipairs(FindAllOf('BP_CVRHolder'..index..'_C') or {}) do
+            for _,holder in ipairs(classes['BlueprintGeneratedClass '..root..'/BP_CVRHolder'..index..'.BP_CVRHolder'..index..'_C'] and {vest} or {}) do
                 state.discovery='holder owner mismatch'
                 if same(holder:GetOwner(),pawn) and valid(holder.CVRMenu) then
                     state.discovery='widget not ready'
@@ -75,15 +83,16 @@ function M.update(pawn,pc,game,ready,standalone,headset_free)
                     -- Use this local holder's configured class, inside the exact plan gate.
                     if valid(widget) and valid(widget_class) and widget_class:GetFName():ToString()=='WBP_CVRFlatscreen_C'
                         and widget:IsA(widget_class) then
-                        if not exit_hooks[index] then
-                            RegisterHook('/CVRFlatscreen/BP_CVRHolder'..index..'.BP_CVRHolder'..index..'_C:ReceiveEndPlay',function(context,reason)
+                        local hook_key=root..':'..index
+                        if not exit_hooks[hook_key] then
+                            RegisterHook(root..'/BP_CVRHolder'..index..'.BP_CVRHolder'..index..'_C:ReceiveEndPlay',function(context,reason)
                                 if not same(context:get(),state.holder) then return end
                                 if reason:get()==0 then -- EEndPlayReason::Destroyed: death also replaces the holder.
                                     close(state.holder:GetOwner())
                                     state.widget,state.holder=nil,nil
                                 elseif M.on_exit then M.on_exit() end
                             end)
-                            exit_hooks[index]=true
+                            exit_hooks[hook_key]=true
                         end
                         state.discovery='ready'
                         state.holder,state.widget=holder,widget

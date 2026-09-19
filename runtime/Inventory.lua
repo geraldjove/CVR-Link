@@ -2,7 +2,7 @@
 local M={}
 local ammo=require('Ammo')
 local stock_ammo_can='StaticMesh /Game/Maps/Scene_RES/MilitaryBase/Meshes/SM_MERGED_SupplyPack_01_Single_Can.SM_MERGED_SupplyPack_01_Single_Can'
-local groups={One={'Primary','Alt-Primary'},Two={'Sidearm'},Three={'Gadget1'},Four={'Gadget2'},Five={'Gadget3'},V={'Melee'}}
+local groups={One={'Primary','Alt-Primary','Bow'},Two={'Sidearm'},Three={'Gadget1'},Four={'Gadget2'},Five={'Gadget3'},V={'Melee'}}
 local function valid(o) return o and o:IsValid() end
 local function same(a,b) return valid(a) and valid(b) and a:GetAddress()==b:GetAddress() end
 function M.held(controller)
@@ -17,7 +17,8 @@ function M.new(pawn) return {pawn=pawn,slots={},message='ready'} end
 local function refresh(inventory,held)
     local slots={}
     for _,holster in ipairs(FindAllOf('ZomboyInteractableHolster') or {}) do
-        if same(holster:GetOwner(),inventory.pawn) then
+        if same(holster:GetOwner(),inventory.pawn)
+            and not holster:IsA(StaticFindObject('/Game/Core/VRInteractables/Ninja/Loadout/ArrowHolster.ArrowHolster_C')) then
             local tag=holster.HolsterTag:ToString()
             local wanted=false
             for _,tags in pairs(groups) do for _,name in ipairs(tags) do if name==tag then wanted=true end end end
@@ -34,10 +35,15 @@ local function refresh(inventory,held)
     end
     inventory.slots=slots
 end
+local function primary_grip(item,grip)
+    -- Katana's second handle is not marked assist, but requires its main grip.
+    return not item:IsA(StaticFindObject('/Game/Core/VRInteractables/MeleeWeapons/CS_MeleeWeapon.CS_MeleeWeapon_C'))
+        or same(grip,item.GripComponent)
+end
 local function grip_for(item)
     for _,grip in ipairs(FindAllOf('ZomboyInteractionComponent') or {}) do
         if same(grip:GetOwner(),item) and grip.DefaultGripType==1 and not grip.bAssistGrip
-            and grip.DefaultInteractionButton==0 then return grip end
+            and grip.DefaultInteractionButton==0 and primary_grip(item,grip) then return grip end
     end
 end
 function M.interact(inventory,right,camera)
@@ -50,7 +56,7 @@ function M.interact(inventory,right,camera)
         if valid(grip) and not grip.bAssistGrip and not grip:IsInteracting() then
             local item=grip:GetInteractable()
             local station=ammo.is_station(item)
-            if valid(item) and not item:GetFName():ToString():match('^Default__')
+            if valid(item) and primary_grip(item,grip) and not item:GetFName():ToString():match('^Default__')
                 and (station or (not valid(held) and grip.DefaultInteractionButton==0))
                 and not valid(item:GetActorAttachingTo()) then
                 local point=grip:K2_GetComponentLocation()
@@ -130,8 +136,8 @@ function M.select(inventory,key,pc,right,before_switch)
     before_switch()
     local from=home and home.holster.HolsterTag:ToString()
     local to=target.holster.HolsterTag:ToString()
-    local from_primary=from=='Primary' or from=='Alt-Primary'
-    local to_primary=to=='Primary' or to=='Alt-Primary'
+    local from_primary=from=='Primary' or from=='Alt-Primary' or from=='Bow'
+    local to_primary=to=='Primary' or to=='Alt-Primary' or to=='Bow'
     local delay=((from_primary and to=='Sidearm') or (from=='Sidearm' and to_primary)) and 1 or (home and .25 or 0)
     local equip_after=os.clock()+delay
     inventory.pending={target=target,grip=grip,old=held,old_grip=held_grip,home=home,

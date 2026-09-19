@@ -19,6 +19,9 @@ local function magazine(owner,kind,left,size)
         RefillAmmo=function(self) self.left=self.size end})
 end
 local holsters={}
+pawn.PlayerVest=object({HolsterManager=object({Holsters={ForEach=function(_,callback)
+    for i,holster in ipairs(holsters) do callback(i,{get=function() return holster end}) end
+end}})})
 local function chest(owner,kind,left,size)
     local clip=magazine(owner,kind,left,size)
     local holster=object({GetOwner=function() return owner end,IsA=function() return true end,
@@ -152,4 +155,98 @@ check(plan.delay==3.5,'empty seven-round cylinder waits 3.5 seconds')
 ammo.complete(plan)
 ready,reserve,mags,status=ammo.counts(pawn,gun)
 check(ready==7 and reserve==0 and mags==0 and status=='SPEEDLOADERS','revolver HUD counts spent loaders as empty')
+do
+    holsters={}
+    local kind=object({})
+    kind.GetCDO=function() return magazine(nil,kind,8,8) end
+    local reserve,holster=chest(pawn,kind,8,8)
+    local current,spawned,fail_spawn,fail_insert,detach_insert
+    local mount=object({})
+    local garand=object({chamber=false,GetCurrentClip=function() return current end,
+        GetDefaultClipClass=function() return kind end,GetOwner=function() return pawn end,
+        IsA=function(_,path) return path:find('/M1Garand/WW2_M1Garand.',1,true)~=nil end,
+        HasBulletInChamber=function(self) return self.chamber end,GunClipTransform=mount,
+        EjectChamberBullet=function(self) self.chamber=false end,EjectClip=function() current=nil end,
+        K2_GetActorLocation=function() return {} end,K2_GetActorRotation=function() return {} end})
+    FName=function(value) return value end
+    garand.GetWorld=function() return {SpawnActor=function(_,cls)
+        assert(cls==kind)
+        if fail_spawn then return nil end
+        spawned=magazine(pawn,kind,8,8)
+        spawned.SetOwner=function(_,owner) assert(owner==pawn) end
+        spawned.AuthoritySetAttachment=function(self,parent,socket,t)
+            assert(parent==mount and socket=='None' and t.Scale3D.X==1)
+            if fail_insert then return end
+            current=self;self.attached=garand
+            self:MoveBulletToChamber();garand.chamber=true
+            if detach_insert then self.attached=nil end
+        end
+        spawned.K2_DestroyActor=function(self) self.invalid=true end
+        return spawned
+    end} end
+    local plan=ammo.plan(pawn,garand)
+    check(plan.enbloc and plan.delay==1.5 and reserve.left==8 and not spawned,'empty Garand starts the normal delay without spawning or spending')
+    check(ammo.complete(plan) and current.left==7 and garand.chamber and reserve.left==0,'replacement clip chambers one of eight real rounds')
+    check(reserve.attached==holster and current.attached==garand,'empty chest clip remains attached while replacement uses the gun mount')
+    check(not ammo.complete(plan),'completed insertion cannot be repeated')
+    current=nil;garand.chamber=false;reserve.left=3
+    plan=ammo.plan(pawn,garand);reserve.attached=nil
+    check(not ammo.complete(plan) and reserve.left==3 and not current,'detaching the reserve during delay cancels en-bloc insertion')
+    reserve.attached=holster
+    plan=ammo.plan(pawn,garand);fail_spawn=true
+    check(not ammo.complete(plan) and reserve.left==3,'spawn failure spends no ammo')
+    fail_spawn=false;fail_insert=true
+    check(not ammo.complete(plan) and reserve.left==3 and spawned.invalid,'rejected attachment destroys replacement and keeps reserve')
+    fail_insert=false
+    detach_insert=true
+    check(not ammo.complete(plan) and reserve.left==3 and not current and not garand.chamber and spawned.invalid,
+        'partly accepted attachment rolls back its new chamber round before discarding the replacement')
+    detach_insert=false
+    check(ammo.complete(plan) and current.left==2 and garand.chamber and reserve.left==0,'partial reserve cannot create a full clip')
+    current=nil;garand.chamber=false;reserve.left=1
+    check(ammo.complete(ammo.plan(pawn,garand)) and current.left==0 and garand.chamber and reserve.left==0,'last reserve round goes into the chamber once')
+    current=nil;garand.chamber=false
+    check(not ammo.plan(pawn,garand),'empty chest clips cannot create replacement ammo')
+    reserve.left=8;garand.IsA=function() return false end
+    local missing,reason=ammo.plan(pawn,garand)
+    check(not missing and reason=='no-gun-magazine','missing magazines on other guns retain the existing rejection')
+end
+do
+    holsters={}
+    local kind=object({})
+    kind.GetCDO=function() return magazine(nil,kind,71,71) end
+    local reserve,holster=chest(pawn,kind,71,71)
+    local drum=magazine(nil,kind,24,71)
+    local calls=0
+    local function f32(value) return (string.unpack('f',string.pack('f',value))) end
+    local function remove(self)
+        calls=calls+1
+        if self.left<=0 then return false end
+        -- Native GetRemainingRounds floors capacity * the stored float fraction.
+        self.left=math.floor(f32(f32((self.left-1)/self.size)*self.size))
+        return true
+    end
+    reserve.MoveBulletToChamber=remove;drum.MoveBulletToChamber=remove
+    local ppsh=object({chamber=true,GetCurrentClip=function() return drum end,
+        GetDefaultClipClass=function() return kind end,HasBulletInChamber=function(self) return self.chamber end,
+        ReloadWeapon=function(self) drum.left=71;self.chamber=true end})
+    local plan=ammo.plan(pawn,ppsh)
+    check(plan.delay==1.5 and reserve.left==71,'drum keeps normal magazine delay and reserves until completion')
+    check(ammo.complete(plan) and calls==66 and reserve.left==0 and drum.left==71,
+        '71-round source drains in 66 native-style calls without requesting a round from an empty drum')
+    check(reserve.attached==holster and ammo.counts(pawn,ppsh)==72,'drum reload retains the old chamber once and leaves the empty chest drum attached')
+    reserve.left=71;drum.left=0;ppsh.chamber=false;calls=0
+    check(ammo.complete(ammo.plan(pawn,ppsh)) and drum.left==70 and ppsh.chamber and reserve.left==0,
+        'empty drum reload spends exactly 71 rounds including its new chamber round')
+    reserve.left=14;drum.left=0;ppsh.chamber=false;calls=0
+    check(ammo.complete(ammo.plan(pawn,ppsh)) and reserve.left==0 and drum.left==12 and ppsh.chamber,
+        'partial drum trim accepts native one-round rounding loss without exceeding the spent budget or throwing')
+    check(not ammo.plan(pawn,ppsh),'empty drum reserves do not produce another reload')
+    reserve.left=71;drum.left=20
+    local old_remove=reserve.MoveBulletToChamber
+    reserve.MoveBulletToChamber=function() return true end
+    check(not pcall(ammo.complete,ammo.plan(pawn,ppsh)) and drum.left==20,'a non-progressing native count fails immediately instead of looping forever')
+    reserve.MoveBulletToChamber=old_remove
+end
+
 print(count..' ammo and station checks passed')

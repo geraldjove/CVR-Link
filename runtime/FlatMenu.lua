@@ -82,7 +82,7 @@ function M.active() return state~=nil end
 function M.status()
     return '|flat_menu='..tostring(state~=nil)..'|flat_panels='..tostring(state and state.visible or 0)
         ..'|flat_kind='..(state and (state.stationary and 'stationary' or 'pause') or 'none')
-        ..'|flat_menu_error='..tostring(blocked or '')
+        ..'|flat_menu_error='..tostring(blocked or '')..'|loadout_save='..tostring(M.loadout_save_status or 'ready')
 end
 
 -- Keep aspect ratios. Navigation sits below the active stock page(s).
@@ -132,6 +132,62 @@ function M.layout(items,width,height)
     end
     return result
 end
+-- Injected into FlatMenu.lua only in the private build.
+-- Stock LoadLoadouts falls back to MapTag; SaveLoadouts omits that fallback.
+local loadout_save_hooked,loadout_save_override
+local function save_map_loadout(w)
+    if not state or not valid(w) then return end
+    local owned=false
+    for _,entry in pairs(state.entries) do
+        if same(entry.widget,w) and valid(entry.component) and entry.component.bIsShowing
+            and same(entry.component:GetUserWidgetObject(),w) then owned=true;break end
+    end
+    if not owned then return end
+    local gameplay=assert(StaticFindObject('/Script/Engine.Default__GameplayStatics'))
+    local game=gameplay:GetGameState(w)
+    if not valid(game) or game:GetLoadoutTag():ToString()~='None' then return end
+    local mode=gameplay:GetGameMode(w)
+    if not valid(mode) then return end
+    local cls=mode:GetClass()
+    while valid(cls) and cls:GetFullName()~='BlueprintGeneratedClass /Game/Core/GameMode/CS_GameMode.CS_GameMode_C' do cls=cls:GetSuperStruct() end
+    if not valid(cls) then return end
+    -- Match the kit's ParseOption rules without a temporary returned FString.
+    local options,tag=mode.OptionsString:ToString(),''
+    if options:sub(1,1)~='?' then return end
+    for pair in options:gmatch('%?([^?]*)') do
+        local key,value=pair:match('^([^=]*)=(.*)$')
+        if (key or pair):lower()=='maptag' then tag=value or '';break end
+    end
+    if tag=='' then return end
+    local helper=StaticFindObject('/Game/Core/SaveGames/LoadoutSaveHelper.Default__LoadoutSaveHelper_C')
+    if not valid(helper) then error('Stock loadout save helper is missing') end
+    -- Re-run the stock save with its own current settings, never a stale None file.
+    -- The override lasts only for this synchronous call, on this GameState.
+    loadout_save_override={game=game,tag=FName(tag)}
+    local ok,reason=pcall(function() helper:SaveLoadouts(w.TmpChooseLoadoutIndex,w) end)
+    loadout_save_override=nil
+    if not ok then error(reason) end
+    M.loadout_save_status=tag..tostring(w.TmpChooseLoadoutIndex)
+    print('[Flatscreen] loadout Save routed to '..M.loadout_save_status..'\n')
+end
+local function register_loadout_save(w,c)
+    local cls=c.WidgetClass
+    if loadout_save_hooked or not valid(cls) or cls:GetFName():ToString()~='NewLoadout_UI_Main_C' or not w:IsA(cls) then return end
+    RegisterHook('/Script/ZomboyVR.ZomboyGameState:GetLoadoutTag',function() end,function(context,result)
+        local target=loadout_save_override
+        if target and same(context:get(),target.game) and result:get():ToString()=='None' then return target.tag end
+    end)
+    -- UE4SS Blueprint hooks run AFTER the function, following stock budget/save checks.
+    RegisterHook('/Game/Core/UI/Loadout/NewUI/NewLoadout_UI_Main.NewLoadout_UI_Main_C:SaveLoadout',function(context)
+        local ok,reason=pcall(save_map_loadout,context:get())
+        if not ok then
+            M.loadout_save_status='error'
+            print('[Flatscreen] loadout Save fallback error: '..tostring(reason)..'\n')
+        end
+    end)
+    loadout_save_hooked=true
+end
+
 local function discover(root,entries)
     local visited,count={},0
     local widget_class=StaticFindObject('/Script/UMG.WidgetComponent')
@@ -149,6 +205,7 @@ local function discover(root,entries)
                     scale=xy(w.RenderTransform.Scale),render_pivot=xy(w.RenderTransformPivot),
                     space=c:GetWidgetSpace(),pivot=xy(c:GetPivot()),auto_size=c.bDrawAtDesiredSize,
                     draw_size=xy(c:GetDrawSize()),collision=c:GetCollisionEnabled()}
+                if entries[id].name=='LoadoutMain' then register_loadout_save(w,c) end
                 w:ForceLayoutPrepass()
             end
         end
