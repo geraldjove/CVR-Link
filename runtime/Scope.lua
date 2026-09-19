@@ -96,12 +96,12 @@ local function hide_overlay(unloaded)
     end
 end
 local function show_overlay(s)
-    -- Only this shipping sight's textures have been inspected. Other scopes
-    -- keep their stock view with the larger target until separately checked.
+    -- Use only inspected shipping reticle/center pairs.
     if s.overlay_supported==false then return end
     if not s.reticle then
         s.reticle=s.material:K2_GetTextureParameterValue(FName('Reticle Design'))
-        s.overlay_supported=valid(s.reticle) and s.reticle:GetFullName()=='Texture2D /Game/ThirdPartyResources/Models/Sights/Textures/Scope_Power__1_.Scope_Power__1_'
+        s.profile=M.overlay_profile(s.material,s.reticle)
+        s.overlay_supported=s.profile~=nil
         if not s.overlay_supported then return end
     end
     local reticle=s.reticle
@@ -122,9 +122,10 @@ local function show_overlay(s)
     if overlay.target~=s.target:GetAddress() then
         material:SetTextureParameterValue(FName('Scene'),s.target)
         material:SetTextureParameterValue(FName('Reticle'),reticle)
-        local center=s.material:K2_GetTextureParameterValue(FName('crosshairsight'))
-        assert(valid(center),'Scope center texture is missing')
-        material:SetTextureParameterValue(FName('Center'),center)
+        material:SetTextureParameterValue(FName('Center'),s.profile.center)
+        material:SetScalarParameterValue(FName('CenterScale'),s.profile.scale)
+        material:SetVectorParameterValue(FName('CenterOffset'),s.profile.offset)
+        material:SetVectorParameterValue(FName('CenterColor'),s.profile.color)
         overlay.target=s.target:GetAddress()
     end
     libraries.layout=libraries.layout or StaticFindObject('/Script/UMG.Default__WidgetLayoutLibrary')
@@ -271,4 +272,60 @@ function M.status()
         ..'|scope_background='..tostring(applied_scale or 'original')
         ..'|scope_error='..tostring(last_error or ''):gsub('[|\r\n]',' ')
 end
+-- Inspected shipping reticles. Keep the accepted AWM profile unchanged.
+local texture_root='Texture2D /Game/ThirdPartyResources/Models/Sights/Textures/'
+local centers={
+    ['g3scope/Scope_Leupold.Scope_Leupold']='g3scope/Scope_Leupold_center.Scope_Leupold_center',
+    ['svdpso/Scope_svdpso1.Scope_svdpso1']='svdpso/Scope_svdpso1_center.Scope_svdpso1_center',
+    ['ww2/Scope_Mosin.Scope_Mosin']='ww2/Scope_Mosin_center.Scope_Mosin_center',
+    ['ww2/Scope_lee.Scope_lee']='ww2/Scope_lee_center.Scope_lee_center',
+    ['acog/ACOG_Xhair.ACOG_Xhair']='acog/ACOG_arrow.ACOG_arrow',
+    ['hamr/Scope_HAMMR.Scope_HAMMR']='hamr/Hammr_center.Hammr_center',
+    ['kashtan/Kashtan_scopeNEW.Kashtan_scopeNEW']='kashtan/Kashtan_scopeNEW_center.Kashtan_scopeNEW_center',
+}
+function M.overlay_profile(material,reticle)
+    if not valid(reticle) then return end
+    local name=reticle:GetFullName()
+    local center=material:K2_GetTextureParameterValue(FName('crosshairsight'))
+    if not valid(center) then return end
+    if name==texture_root..'Scope_Power__1_.Scope_Power__1_' then
+        return {center=center,scale=18,offset={R=0,G=0,B=0,A=0},color={R=1,G=.02,B=.02,A=1}}
+    end
+    local expected=name:sub(1,#texture_root)==texture_root and centers[name:sub(#texture_root+1)]
+    if not expected or center:GetFullName()~=texture_root..expected then return end
+    local aim=material:K2_GetScalarParameterValue(FName('ScaleAim'))
+    local cross=material:K2_GetScalarParameterValue(FName('ScaleCrossHair'))
+    if not (aim>0 and aim<100 and cross>0 and cross<100) then return end
+    return {center=center,scale=.5*aim/cross,
+        offset={R=material:K2_GetScalarParameterValue(FName('CrossHairUV_U')),
+            G=material:K2_GetScalarParameterValue(FName('CrossHairUV_V')),B=0,A=0},
+        color=material:K2_GetVectorParameterValue(FName('sight_color'))}
+end
+
+local dot_sights={
+    '/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/KobraSight/KobraSight_BP.KobraSight_BP_C',
+    '/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/AimpointT1/AimpointmicroT1Sight.AimpointMicroT1Sight_C',
+    '/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/AimpointT1/AimpointT1Sight.AimpointT1Sight_C',
+    '/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/ReflexRedDotSight/ReflexRedDotSight.ReflexRedDotSight_C',
+}
+function M.sight_reference(sight)
+    local native=sight:GetSightTransform()
+    for _,class in ipairs(dot_sights) do
+        if sight:IsA(class) then
+            local lens=sight.SM_T4_Sight_Lense
+            if not valid(lens) or not same(lens:GetOwner(),sight) then return native end
+            -- The inspected shipping lens meshes have their optical center at
+            -- local zero. Project that center back to the native eye plane.
+            -- This keeps eye relief and follows each gun's actual mount.
+            local q,p=native.Rotation,native.Translation
+            local f={X=1-2*(q.Y*q.Y+q.Z*q.Z),Y=2*(q.X*q.Y+q.W*q.Z),Z=2*(q.X*q.Z-q.W*q.Y)}
+            local c=lens:K2_GetComponentLocation()
+            local along=(c.X-p.X)*f.X+(c.Y-p.Y)*f.Y+(c.Z-p.Z)*f.Z
+            return {Rotation=q,Scale3D=native.Scale3D,
+                Translation={X=c.X-along*f.X,Y=c.Y-along*f.Y,Z=c.Z-along*f.Z}}
+        end
+    end
+    return native
+end
+
 return M

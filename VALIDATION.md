@@ -1,4 +1,4 @@
-# CVR Link 0.2.62 validation
+# CVR Link 0.2.69 validation
 
 Release checks for 19 September 2026. Code and native editor results are
 separate from live play evidence.
@@ -31,3 +31,17 @@ Final WW2/Ninja packages use their own mod.io IDs and namespace. Standard
 keeps page 6383627 and its original asset paths under its new display name.
 The public app permits only those three exact plans, plus the existing
 Experimental local HQ exception. Renaming a room cannot enable it.
+
+Dev .68 play confirmations cover Ninja and WW2 server weapon menus and
+equipped spawns, the revised resting arms, and an unnamed sight sample.
+Dev .66 confirmed the clear Ninja sword view and showed Mosin scope/blur.
+The asset audit covered eight stock snipers and 36 gun/sight pairs; it does
+not establish every optic's live alignment or impact accuracy. New server
+and Android package cooks retain separate device and network limits.
+
+Release candidate checks passed: 15 public Lua suites (1,775 checks), 90
+Ninja/height/rest checks, 24 optics/quiver checks and 10 owned-holster checks.
+Desktop form/settings, installer, native EXE and exact 24-entry payload
+checks passed. Public source has 48 allowed files. The public scope material
+and widget reopened and passed 18 native checks, including both saved
+offset parameters. The public scope PAK contains five owned entries.

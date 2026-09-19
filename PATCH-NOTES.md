@@ -1,31 +1,60 @@
-# CVR Link 0.2.62 — Standard, WW2 and Ninja
+# CVR Link 0.2.69 — Loadout and sight fixes
 
-19 September 2026. Standard loadout 0.2.6; WW2 and Ninja loadouts 0.1.0.
+19 September 2026
 
-One CVR Link app works with three separate loadouts:
-[CVRFlatscreen Standard](https://mod.io/g/contractors/m/cvrflatscreen),
-[CVRFlatscreen WW2](https://mod.io/g/contractors/m/cvrflatscreen-ww2) and
-[CVRFlatscreen Ninja](https://mod.io/g/contractors/m/cvrflatscreen-ninja).
-Standard keeps its existing page and subscriptions, with a clearer name.
+Update **CVR Link to 0.2.69** and your chosen loadout in Contractors:
 
-- New Standard, WW2 and Ninja server-selection artwork supplied by Gerald.
-- Standard and WW2 bare-iron alignment, including the BREN rear aperture.
-- Bow hold/release, clear bow ADS, Ninja smoke and correct equipment slots.
-- Forward-turning melee slash, blade reach, lower-right rest and Shift attacks.
-- Normal pistol recoil with reduced ADS camera movement only.
-- Automatic join-height calibration and the map-slot loadout Save correction.
-- Local vest ammo/menu discovery; native ammo counts and ownership checks stay.
+- CVRFlatscreen Standard **0.2.7**
+- CVRFlatscreen WW2 **0.1.1**
+- CVRFlatscreen Ninja **0.1.1**
 
-Close Contractors and CVR Link, update the Windows app, and update the
-loadout in the game's mod browser. Keep the app open for mouse and keyboard
-play. Keys, display settings, scopes, the HUD and flat menus stay available.
+## Fixes
 
-Matches still need one of the three exact CVRFlatscreen loadouts, your
-Flatscreen choice and a running CVR Link app. Other loadouts stay locked.
-Experimental also permits the local HQ. Default play remains VR.
+- Fixed empty WW2 and Ninja loadout menus after joining a server. Both now
+  show weapons and allow equipped spawns in the tested private build. All
+  three loadout packages include the same loading fix.
+- Added the large magnified scope view and blurred surroundings to the
+  inspected Standard and WW2 sniper scope types. This includes the scoped
+  options on AWM, M1A, SKS, SVD, Sako85, Kar98, Mosin Nagant and Lee-Enfield.
+  The AWM keeps its existing scope setup. Other unsupported optics keep
+  their normal lens view.
+- Corrected Kobra, Aimpoint T1, Aimpoint Micro T1 and Reflex aiming alignment
+  using the sight's lens position on the weapon.
+- Fixed arrows and the quiver crossing the view while using the Ninja sword.
+- Empty hands now rest at the body's sides. The free left hand also rests
+  down while holding a melee weapon in the right hand.
 
-The gameplay changes were accepted in local previews. Code, asset and
-package checks passed; broader public-package, weapon, Quest, server and
-multiplayer play checks remain. Quest is a VR/controller preview, without
-mouse and keyboard support. Explosion freezes remain unresolved.
-No third-party graphics add-ons are changed.
+Normal gun recoil stays in place. Pistols keep the earlier reduced camera
+shake while aiming. Bow controls and the accepted melee reach, rotation and
+sprint attacks remain the same. No keybind changes in this update.
+
+## Update steps
+
+1. Update your chosen CVRFlatscreen loadout in Contractors' mod browser.
+   Server hosts should update the matching server content too.
+2. Close Contractors and CVR Link. Download **CVRLink.exe 0.2.69**, open it,
+   and click **Install CVR Link**.
+3. Keep CVR Link open and start Contractors. Host or join a room using
+   CVRFlatscreen Standard, WW2 or Ninja.
+
+Flatscreen match controls remain locked to these three exact loadouts and
+need your choice to use Flatscreen plus a running CVR Link app. The existing
+Experimental local HQ option remains available. VR players keep their
+normal controllers. Quest mouse and keyboard play is not included.
+
+## Testing and known limits
+
+In Dev .68, Gerald confirmed that Ninja and WW2 server menus and equipped
+spawns work, the resting arms look natural, and the sights he tried show no
+problem. He also confirmed the Ninja sword view was clear in Dev .66.
+The asset audit covered all eight stock snipers and 36 gun/sight pairs;
+this is not a live test of every gun or scope. Further impact, Quest, mixed
+client, respawn and travel checks remain. The brief freeze at the start of
+some explosions is still being investigated.
+
+[Download CVR Link](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.69)
+ · [Standard](https://mod.io/g/contractors/m/cvrflatscreen)
+ · [WW2](https://mod.io/g/contractors/m/cvrflatscreen-ww2)
+ · [Ninja](https://mod.io/g/contractors/m/cvrflatscreen-ninja)
+
+Author: **_mintyfishy** · [Discord](https://discord.gg/432n3NTq9f)

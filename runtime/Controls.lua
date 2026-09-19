@@ -581,7 +581,7 @@ local function sight_reference(gun)
         if valid(sight) and same(sight:GetOwner(),gun)
             and same(sight:GetActorAttachingTo(),gun)
             and not sight:IsA('/Game/Core/VRInteractables/ZomboyGunSystem/Attachments/Sights/ZomboyIronSight.ZomboyIronSight_C') then
-            return relative(transform(sight:GetSightTransform()),transform(gun:GetTransform())),sight
+            return relative(transform(scopeview.sight_reference(sight)),transform(gun:GetTransform())),sight
         end
     end
     return iron_reference(gun)
@@ -907,7 +907,10 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     end
     actions.tick(state.action,down.LeftMouseButton,not menu and not over_ui and not sprint_action_blocked
         and not state.inventory.pending and not pressed.G and not pressed.R,pc,state.left,state.right,camera)
+    actions.rest_hands(state.action,not menu and not state.inventory.pending)
     actions.follow(state.action,inventory.held(state.right),not menu and not state.inventory.pending)
+    actions.quiver_visibility(state.action,not menu
+        and actions.is_melee(inventory.held(state.right)))
     send_controller_poses()
 end
 function M.apply_local_grab(item,output)

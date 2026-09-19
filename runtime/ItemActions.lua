@@ -158,6 +158,32 @@ function M.slash(action)
     return 10*a,20-78*a,-24-12*a,false,30+100*a,30-10*a
 end
 function M.offset() return 0 end
+function M.rest_hands(action,enabled)
+    action.resting={}
+    if not enabled or not valid(action.pawn) then return end
+    local mesh=action.pawn.Mesh
+    if not valid(mesh) or not mesh:DoesSocketExist(FName('pelvis')) then return end
+    local p=mesh:GetSocketLocation(FName('pelvis'))
+    local yaw=action.pawn:K2_GetActorRotation().Yaw
+    local c,s=math.cos(math.rad(yaw)),math.sin(math.rad(yaw))
+    local scale=mesh:K2_GetComponentToWorld().Scale3D
+    for index,driver in ipairs(action.drivers) do
+        local hand=driver.hand
+        local grip=hand:GetCurrentInteraction().InteractionComponent:Get()
+        local reserved=index==1 and (action.string or action.pin)
+        if not valid(grip) and not reserved then
+            -- Stock pelvis follows body height/crouch. A free wrist rests at
+            -- upper-thigh height, independent of camera pitch. Keeping the
+            -- wrist lower and closer avoids the .67 hands-on-hips elbow bend.
+            local side=index==1 and -1 or 1
+            local forward,lateral=3*scale.X,24*side*scale.Y
+            hand:K2_SetWorldLocationAndRotation({X=p.X+c*forward-s*lateral,
+                Y=p.Y+s*forward+c*lateral,Z=p.Z-16*scale.Z},
+                {Pitch=-75,Yaw=yaw,Roll=0},false,{},true)
+            action.resting[hand:GetAddress()]=true
+        end
+    end
+end
 function M.tick(action,down,allowed,pc,left,right,camera)
     if action.swing then
         if not allowed or not same(action.item,inventory.held(right)) then M.stop(action,pc,left,right)
@@ -205,6 +231,7 @@ function M.follow(action,item,allowed)
     end
     for _,driver in ipairs(action.drivers) do
         local hand=driver.hand
+        local active=active or allowed and action.resting and action.resting[hand:GetAddress()]
         if active and not valid(driver.actor) then
             local zero={X=0,Y=0,Z=0}
             driver.actor=action.pawn:GetWorld():SpawnActor(StaticFindObject('/Script/Engine.CameraActor'),zero,{Pitch=0,Yaw=0,Roll=0})
@@ -230,6 +257,7 @@ function M.follow(action,item,allowed)
     end
 end
 function M.shutdown(action)
+    M.quiver_visibility(action,false)
     if valid(action.blade) and action.right and same(action.blade:GetOwner(),inventory.held(action.right)) then
         action.blade:SetComponentTickEnabled(action.blade_tick)
     end
@@ -237,6 +265,42 @@ function M.shutdown(action)
         if valid(driver.actor) then
             if valid(driver.hand) and valid(driver.parent) then driver.hand:K2_AttachToComponent(driver.parent,FName('None'),1,1,1,false) end
             driver.actor:K2_DestroyActor()
+        end
+    end
+end
+
+-- Only the local, holstered Ninja ArrowHolder mesh is hidden from its owner.
+-- The native holster, arrows, interaction and remote players are unchanged.
+function M.quiver_visibility(action,enabled)
+    local wanted={}
+    local pawn=action.pawn
+    local vest=enabled and valid(pawn) and pawn.PlayerVest
+    local manager=valid(vest) and vest.HolsterManager
+    if valid(manager) then
+        manager.Holsters:ForEach(function(_,entry)
+            local holster=entry:get()
+            if valid(holster) and same(holster:GetOwner(),pawn)
+                and holster:IsA('/Game/Core/VRInteractables/Ninja/Loadout/ArrowHolster.ArrowHolster_C') then
+                local holder=holster:GetHolsterInteractable()
+                if valid(holder) and same(holder:GetOwner(),pawn) and same(holder:GetActorAttachingTo(),holster)
+                    and holder:IsA('/Game/Core/VRInteractables/Ninja/ArrowHolder.ArrowHolder_C') then
+                    local mesh=holder.StaticMesh
+                    if valid(mesh) and same(mesh:GetOwner(),holder) then wanted[mesh:GetAddress()]=mesh end
+                end
+            end
+        end)
+    end
+    action.quiver_meshes=action.quiver_meshes or {}
+    for address,saved in pairs(action.quiver_meshes) do
+        if not wanted[address] then
+            if valid(saved.mesh) then saved.mesh:SetOwnerNoSee(saved.original) end
+            action.quiver_meshes[address]=nil
+        end
+    end
+    for address,mesh in pairs(wanted) do
+        if not action.quiver_meshes[address] then
+            action.quiver_meshes[address]={mesh=mesh,original=mesh.bOwnerNoSee}
+            mesh:SetOwnerNoSee(true)
         end
     end
 end

@@ -2,7 +2,7 @@
 
 Mouse, keyboard and HUD controls for Contractors VR on Windows.
 
-**CVR Link 0.2.62 — 19 September 2026.**
+**CVR Link 0.2.69 — 19 September 2026.**
 
 Author: **_mintyfishy**. [Discord](https://discord.gg/432n3NTq9f) ·
 [Downloads](https://github.com/geraldjove/CVR-Link/releases/latest).
@@ -13,7 +13,8 @@ CVR Link works with [CVRFlatscreen Standard](https://mod.io/g/contractors/m/cvrf
 [CVRFlatscreen WW2](https://mod.io/g/contractors/m/cvrflatscreen-ww2) and
 [CVRFlatscreen Ninja](https://mod.io/g/contractors/m/cvrflatscreen-ninja).
 Each is its own loadout. Choose one when hosting, or join a room using it.
-Update the Windows app to 0.2.62 for WW2 and Ninja. Standard keeps its
+Update the Windows app to 0.2.69 and the chosen loadout to Standard 0.2.7
+or WW2/Ninja 0.1.1. Standard keeps its
 existing mod.io page and subscriptions.
 
 The app needs an exact supported loadout, your own choice to play in
@@ -44,17 +45,15 @@ Keep earlier downloads for rollback, and close the game before switching.
 
 ## What's new
 
-- Improved bare iron sights for Standard and WW2 guns, including BREN Mk2.
-- Bow: **1** equips it. Hold **left mouse** to draw, release to fire.
-  Hold **right mouse** to aim with the hands hidden from view.
-- Melee: **V** equips it. Left click makes a fast diagonal slash with blade
-  rotation. It rests lower-right and can attack while sprinting.
-- Ninja smoke: select its gadget slot, hold left mouse, then release to throw.
-- Pistols keep their normal recoil, with much less camera movement during ADS.
-- Automatic standing-height calibration after a ready spawn.
-- A fix for the in-match loadout Save file mismatch.
-- Ammo and menu checks use the current player's vest instead of global scans.
-- Each loadout has its own server-selection image and pause page.
+- Fixed empty WW2 and Ninja loadout menus and missing equipment on join.
+- More Standard and WW2 sniper scopes use the large magnified view with
+  blurred surroundings.
+- Corrected Kobra, Aimpoint T1, Micro T1 and Reflex aiming alignment.
+- Ninja arrows and quiver no longer cross the view during sword use.
+- Empty hands rest at the sides, including the free hand while holding melee.
+
+Normal recoil, reduced pistol camera shake, bow controls and melee reach
+stay. No keybind changes. See the full patch notes for the supported scopes.
 
 Existing controls stay: **WASD** to move, **Shift + forward** to sprint,
 **Ctrl/C** to crouch, **R** to reload, **E** to interact, **G** to drop,
@@ -72,7 +71,7 @@ is retired; right mouse aims. Existing graphics add-ons are left alone.
 The source gameplay was tested in the private preview. Gerald accepted
 bare iron-sight feel, bow aim, Ninja equipment/smoke, melee reach/rotation,
 lower-right rest and Shift attacks. This is not proof that every weapon,
-map or network case works. The new gated public app and separate loadout
+map or network case works. Gerald also confirmed Ninja and WW2 server menus and equipped spawns on Dev .68, natural resting arms, a clear sword view, and no issue in his unnamed sight sample. The new gated public app and updated loadout
 packages still need broader combined shipping-game tests.
 
 Windows, server and Android packages are built separately. Quest remains

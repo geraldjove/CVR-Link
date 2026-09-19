@@ -123,7 +123,9 @@ material.K2_GetTextureParameterValue=function(self,name)
     return getter(self,name)
 end
 local parameters={}
-local ui_material=obj({SetTextureParameterValue=function(_,name,value) parameters[name]=value end})
+local ui_material=obj({SetTextureParameterValue=function(_,name,value) parameters[name]=value end,
+    SetScalarParameterValue=function(_,name,value) parameters[name]=value end,
+    SetVectorParameterValue=function(_,name,value) parameters[name]=value end})
 local size,position,widgets,scale=nil,nil,0,93.5
 local slot=obj({SetPosition=function(_,p) position=p end,SetSize=function(_,s) size=s end})
 local removed=0

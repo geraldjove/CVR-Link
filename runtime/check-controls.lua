@@ -87,7 +87,7 @@ pawn.CrouchCurve=object({
     Reverse=function() uncrouches=uncrouches+1; pawn.crouching=false end,
     PlayFromStart=function() crouch_position=0; error('crouch must resume at its current height') end,
     ReverseFromEnd=function() crouch_position=.4; error('stand must reverse from its current height') end})
-pawn.Mesh=object({bVisible=true,SetVisibility=function(self,value,propagate) assert(not propagate); self.bVisible=value end,
+pawn.Mesh=object({DoesSocketExist=function() return false end,bVisible=true,SetVisibility=function(self,value,propagate) assert(not propagate); self.bVisible=value end,
     K2_GetComponentLocation=function() return {X=0,Y=0,Z=0} end})
 local function gun(owner,x)
     local result=object({PrimGripComponent=object({}),bIsPhysicalInteractible=true,GunData={bBoltAction=false},Category={ToString=function() return 'Carbine' end},GetOwner=function() return owner end,
