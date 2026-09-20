@@ -701,30 +701,17 @@ function M.tick(pawn,pc,camera,rotation,dx,dy)
     local movement=pawn.CharacterMovement
     if crouch~=(state.crouched or false) then
         if crouch then
-            local v=movement.Velocity
-            local running=v.X*v.X+v.Y*v.Y>=(movement.MaxWalkSpeed*.9)^2
-            state.slide_deadline=pawn:IsSprinting() and movement:IsMovingOnGround() and running and os.clock()+.6 or nil
+
             -- The stock events restart two different curves at full height/depth.
             -- Reverse one timeline at its current position so a quick release cannot snap down.
             pawn.UncrouchCurve:Stop()
             pawn.CrouchCurve:Play()
             state.next_crouch=os.clock()+.5
-        else pawn.CrouchCurve:Reverse(); state.slide_deadline=nil end
+        else pawn.CrouchCurve:Reverse() end
         state.crouched=crouch
     end
-    if state.slide_deadline then
-        if os.clock()>state.slide_deadline or not movement:IsMovingOnGround() then state.slide_deadline=nil
-        elseif pawn:IsCrouching() then
-            local v=movement.Velocity
-            if v.X*v.X+v.Y*v.Y>=(movement.MaxWalkSpeed*.45)^2 then
-                -- Stock PhysSliding / GetIsSliding use MOVE_Custom with custom mode 3.
-                movement:SetMovementMode(6,3)
-                assert(pawn:GetIsSliding(),'native slide mode readback failed')
-                state.slides_started=(state.slides_started or 0)+1
-            end
-            state.slide_deadline=nil
-        end
-    end
+    -- Stock movement enters the slide from sprint+crouch on both client and
+    -- server. A local mode override skips its velocity boost and sprint handoff.
     -- SetSprint can auto-run in the stock game. Only request it with forward input.
     local sprint=down.LeftShift and down_key(pc,'W') and not down_key(pc,'S') and not menu and not aiming and not (actions.is_bow(hand_item) and down.RightMouseButton)
     if sprint and not crouch and not pawn:GetIsSliding() then
@@ -1102,7 +1089,7 @@ function M.status()
         ..'|sprint_lower='..tostring(state.sprint_amount or 0)..'|sprint_blocked='..tostring(state.sprint_blocked or false)
         ..'|sprint_aim_blocked='..tostring(state.sprint_aim_blocked or false)
         ..'|slide='..tostring(state.pawn:GetIsSliding())
-        ..'|slides_started='..tostring(state.slides_started or 0)
+
         ..'|pose_writes='..tostring(state.pose_writes or 0)
         ..'|pose_packets='..tostring(state.pose_packets or 0)
         ..'|recoil_degrees='..tostring(state.recoil_degrees or 0)..'|recoil_peak='..tostring(state.recoil_peak or 0)

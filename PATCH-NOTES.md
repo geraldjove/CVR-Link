@@ -1,32 +1,25 @@
-# CVR Link 0.2.73 — Save fix and in-app updates
+# CVR Link 0.2.75 - Smooth online slides
 
-19 September 2026
+20 September 2026
 
-## Loadout saving
+- Fixed repeated forward camera jumps while sliding on an online server.
+- The game now handles slide entry and speed, keeping client movement in
+  step with its normal server rules. The slide feel was accepted in Dev .74.
+- Applies to CVRFlatscreen Standard, WW2 and Ninja through the Windows app.
 
-- Fixed a save-tag issue that could bring back your old weapons after respawning.
-- Standard, WW2 and Ninja now use their own normal save slots when the game returns an empty loadout tag.
-- After updating, choose your gear and press **Save** once. Old save files are kept.
-- Standard and WW2 saving after respawn were confirmed in the private preview. Server joins, restarts, other presets and Ninja saves still need wider testing.
+In CVR Link 0.2.73, open **Updates > Check for updates**. Close Contractors,
+then click **Install update**. Older versions need a manual download.
 
-## Updates inside CVR Link
+[Download CVR Link 0.2.75](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.75)
 
-- CVR Link now checks for a new version when it opens.
-- Added an **Updates** tab with **Check for updates** and **Install update**.
-- Checks run in the background. A failed connection will not stop the app.
-- When a newer version is found, close Contractors and click **Install update**. CVR Link checks the download, saves your settings and opens the new installer.
-- Updates are installed when you choose to install them. The app does not close your game.
+Keep Standard **0.2.7**, WW2 **0.1.1** and Ninja **0.1.1**. Their loadout files
+are unchanged. The fix comes with CVR Link, so update the Windows app.
 
-**Download 0.2.73 once to get the updater.** Older versions cannot update themselves. After this update, future releases can be checked and installed inside CVR Link.
+Your keys, settings, normal recoil and earlier fixes stay the same. Matches
+still need one of the three supported loadouts, your own Flatscreen choice
+and a running CVR Link app. Quest keeps its normal VR controls.
 
-[Download CVR Link](https://github.com/geraldjove/CVR-Link/releases/tag/v0.2.73)
-
-## Loadouts and controls
-
-Keep Standard **0.2.7**, WW2 **0.1.1** and Ninja **0.1.1**. Their game files have not changed; this fix comes with the Windows app. Loadout updates still come through Contractors.
-
-Flatscreen matches still require CVRFlatscreen Standard, CVRFlatscreen WW2 or CVRFlatscreen Ninja, your own Flatscreen choice and a running CVR Link app. Other loadouts remain locked. No keybind, recoil, scope, bow or melee changes.
-
-The brief freeze when some explosions begin is still being investigated. This release does not claim a fix for that issue.
+Other servers, slopes and latency conditions still need wider testing. The
+brief freeze when some explosions begin is still being investigated.
 
 Author: **_mintyfishy** · [Discord](https://discord.gg/432n3NTq9f)

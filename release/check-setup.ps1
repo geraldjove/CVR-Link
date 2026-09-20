@@ -37,7 +37,7 @@ $oldRuntime=Join-Path $game 'Mods\Flatscreen\Scripts\Controls.lua'
 [IO.File]::WriteAllText($journal,($legacy | ConvertTo-Json -Depth 5))
 $null=Install-Link $Payload $game $state
 $upgraded=Get-Content -Raw -LiteralPath $journal | ConvertFrom-Json
-Assert ($upgraded.version -eq '0.2.73' -and (Test-LinkInstalled $Payload $state)) 'Upgrade replaces the old runtime and records 0.2.73'
+Assert ($upgraded.version -eq '0.2.75' -and (Test-LinkInstalled $Payload $state)) 'Upgrade replaces the old runtime and records 0.2.75'
 Assert ($upgraded.files[0].backup -eq $before) 'Upgrade keeps the original rollback backup'
 $null=Remove-Link $state
 Assert (-not(Test-Path -LiteralPath (Join-Path $game 'UE4SS.dll'))) 'Remove deletes a loader that we added'

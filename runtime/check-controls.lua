@@ -80,7 +80,7 @@ local pawn=object({PlayerBodyCalibrationInfo={PlayerHeight=180,FloorOffset=0},
     OnUncrouch=function(self) crouch_position=.4; uncrouches=uncrouches+1; self.crouching=false end})
 pawn.CharacterMovement=object({Velocity={X=0,Y=0,Z=0},MaxWalkSpeed=420,
     IsMovingOnGround=function(self) return not self.airborne and not pawn.sliding end,
-    SetMovementMode=function(_,mode,custom) assert(mode==6 and custom==3); pawn.sliding=true end})
+    SetMovementMode=function() error('controls must leave slide entry to stock movement prediction') end})
 pawn.UncrouchCurve=object({Stop=function() end})
 pawn.CrouchCurve=object({
     Play=function() crouches=crouches+1; crouched_while_sprinting=pawn.sprinting; pawn.crouching=true end,
@@ -600,7 +600,12 @@ pawn.CharacterMovement.Velocity.X=550
 local crouch_started=now
 input({W=true,LeftShift=true,LeftControl=true})
 check(crouches==1 and crouched_while_sprinting,'sprint remains active when native crouch starts, allowing native slide rules')
-check(pawn.sliding,'grounded sprint then crouch enters stock slide mode')
+check(not pawn.sliding and pawn.sprinting,'sprint/crouch requests reach native movement without a local mode override')
+check(pawn.CharacterMovement.Velocity.X==550,'controls do not overwrite velocity or invent a slide boost')
+-- Native PhysWalking owns the transition after processing the input requests.
+-- Its real transition and compressed flags are checked in dev/check-slide-native.py.
+pawn.sliding=true;pawn.sprinting=false;tick()
+check(pawn.sliding and not pawn.sprinting,'holding sprint/crouch does not rearm sprint during the native slide')
 input({W=true,LeftShift=true,C=true}); tick()
 check(crouches==1,'crouch aliases do not restart the transition while held')
 crouch_position=.05

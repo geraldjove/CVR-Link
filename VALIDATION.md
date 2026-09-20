@@ -1,6 +1,6 @@
-# CVR Link 0.2.73 validation
+# CVR Link 0.2.75 validation
 
-Release checks for 19 September 2026. Code and native editor results are
+Release checks for 20 September 2026. Code and native editor results are
 separate from live play evidence.
 
 The public runtime is generated from the existing gated source plus the
@@ -76,3 +76,17 @@ syntax and the exact 24-entry payload/source/privacy checks pass. The public
 export still contains 48 approved files. A clean-PC/UAC/signing test remains
 separate from these isolated installer and GUI checks. No live game install
 was performed as part of publication.
+
+The .75 slide change removes the local movement-mode override. Stock
+movement now owns slide entry, speed boost and sprint handoff. Native local
+and compressed-input replay speeds match. Gerald accepted the online slide
+feel in Dev .74 on 20 September. No server correction trace was captured;
+other servers, slopes and latency conditions remain separate play cases.
+
+The .75 candidate passes all fifteen public Lua suites, including 1,138
+controls checks and 98 flat-menu/save checks. Ninja/height/rest 90,
+optics/quiver 24, owned-holster 10 and updater 39 checks pass. GUI/INI,
+installer 49, scope journal 8, display 14, native EXE, script syntax and
+exact payload/source/privacy checks pass. The public export has 48 allowed
+files and 24 embedded entries. Only slide behavior and release versions
+change from .73; loadout and scope bytes remain unchanged.

@@ -2,7 +2,7 @@
 
 Mouse, keyboard and HUD controls for Contractors VR on Windows.
 
-**CVR Link 0.2.73 — 19 September 2026.**
+**CVR Link 0.2.75 — 20 September 2026.**
 
 Author: **_mintyfishy**. [Discord](https://discord.gg/432n3NTq9f) ·
 [Downloads](https://github.com/geraldjove/CVR-Link/releases/latest).
@@ -13,7 +13,7 @@ CVR Link works with [CVRFlatscreen Standard](https://mod.io/g/contractors/m/cvrf
 [CVRFlatscreen WW2](https://mod.io/g/contractors/m/cvrflatscreen-ww2) and
 [CVRFlatscreen Ninja](https://mod.io/g/contractors/m/cvrflatscreen-ninja).
 Each is its own loadout. Choose one when hosting, or join a room using it.
-Update the Windows app to 0.2.73 and the chosen loadout to Standard 0.2.7
+Update the Windows app to 0.2.75 and the chosen loadout to Standard 0.2.7
 or WW2/Ninja 0.1.1. Standard keeps its
 existing mod.io page and subscriptions.
 
@@ -45,6 +45,12 @@ Keep earlier downloads for rollback, and close the game before switching.
 
 ## What's new
 
+- Fixed repeated forward camera jumps during online slides. The game now
+  handles the slide's speed boost and movement from start to finish.
+- Update CVR Link for this fix. It works with all three supported loadouts.
+
+## Earlier save fix and updater
+
 - Fixed the save-tag issue that could bring back old weapons after respawning.
   Choose your gear and press **Save** once after updating.
 - CVR Link checks for new releases when it opens.
@@ -52,8 +58,8 @@ Keep earlier downloads for rollback, and close the game before switching.
   Close Contractors first. The download is checked and your settings are
   saved before the new installer opens.
 
-Download 0.2.73 once to get the updater. Older versions cannot update
-themselves. Later updates can be installed from inside the app. Checks run
+Use **Updates > Check for updates** in 0.2.73 or later. Older versions cannot update
+themselves; download the new app once. Checks run
 in the background, and you choose when to install. Loadout mods still
 update through Contractors. Standard 0.2.7 and WW2/Ninja 0.1.1 stay current.
 
@@ -72,6 +78,9 @@ The flat menus, scope view and recoil-spread crosshair remain. F6 scope zoom
 is retired; right mouse aims. Existing graphics add-ons are left alone.
 
 ## Test limits
+
+Gerald accepted the online slide feel in private Dev .74 on 20 September.
+Other servers, slopes and latency conditions still need wider play checks.
 
 Standard and WW2 saves survived respawn in the private .72 preview's local
 bot matches. Remote-client, rejoin/restart and Ninja save tests remain.

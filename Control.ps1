@@ -249,7 +249,7 @@ $experimentalHint=[Windows.Forms.Label]::new();$experimentalHint.Text="Start Con
 $startGame=[Windows.Forms.Button]::new();$startGame.Text='Save and start Contractors';$startGame.Width=260;$startGame.Height=38;$startGame.FlatStyle='Flat';$startGame.BackColor=[Drawing.Color]::FromArgb(155,12,24);$startGame.AccessibleName=$startGame.Text
 $startGame.Add_Click({try{Save-Settings;$active.Checked=$true;Start-Contractors $experimental.Checked;$message.Text='Starting Contractors through Steam. Keep CVR Link enabled.'}catch{$message.Text=$_.Exception.Message}})
 $experimentalRows.Controls.AddRange(@($experimental,$experimentalHint,$startGame));$experimentalTab.Controls.Add($experimentalRows)
-$script:linkUpdate=@{CurrentVersion=[version]'0.2.73';PreviewOnly=$false;Client=$null;Task=$null;Release=$null;ReadyFile=$null}
+$script:linkUpdate=@{CurrentVersion=[version]'0.2.75';PreviewOnly=$false;Client=$null;Task=$null;Release=$null;ReadyFile=$null}
 $script:pendingLinkUpdate=$null
 $updateTab=[Windows.Forms.TabPage]::new('Updates');$updateTab.BackColor=$form.BackColor;$updateTab.ForeColor=$form.ForeColor
 $tabs.TabPages.Add($updateTab)
